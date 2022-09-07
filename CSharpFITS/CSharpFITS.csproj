@@ -16,7 +16,7 @@
     <Description></Description>
     <Version>1.1.3</Version>
     <Authors>Virtual Observatory - India</Authors>
-    <PackageId>CSharpFITS</PackageId>
+    <PackageId>CSharpFITS-rgw0</PackageId>
     <RootNamespace>nom.tam</RootNamespace>
   </PropertyGroup>
 
