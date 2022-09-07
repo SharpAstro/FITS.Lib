@@ -7,15 +7,12 @@ on:
     branches: [ master ]
     
 env:
-  VERSION_PREFIX: 3.0.${{ github.run_number }}
-  VERSION_REV: ${{ github.run_attempt }}
-  VERSION_SUFFIX: +${{ github.sha }}
   BUILD_CONF: Release
 
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v2
@@ -25,10 +22,8 @@ jobs:
         dotnet-version: 6.0.x
     - name: Restore dependencies
       run: dotnet restore
-      working-directory: src
     - name: Build
-      run: dotnet build -c $BUILD_CONF --no-restore --version-suffix $VERSION_SUFFIX -p:VersionPrefix=${VERSION_PREFIX}${VERSION_REV} -p:FileVersion=${VERSION_PREFIX}.${VERSION_REV}
-      working-directory: src
+      run: dotnet build -c $BUILD_CONF --no-restore
     - name: Upload Artifact
       uses: actions/upload-artifact@v3
       with:
