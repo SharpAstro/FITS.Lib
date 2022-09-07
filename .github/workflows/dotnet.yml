@@ -23,7 +23,7 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
     - name: Build
-      run: dotnet build -c $BUILD_CONF --no-restore
+      run: dotnet build /p:Configuration=$env:BUILD_CONF
     - name: Upload Artifact
       uses: actions/upload-artifact@v3
       with:
