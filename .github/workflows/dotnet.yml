@@ -21,11 +21,11 @@ jobs:
       with:
         dotnet-version: 6.0.x
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore /p:Configuration=$env:BUILD_CONF
     - name: Build
       run: dotnet build /p:Configuration=$env:BUILD_CONF
     - name: Test
-      run: dotnet test
+      run: dotnet test /p:Configuration=$env:BUILD_CONF
     - name: Upload Artifact
       uses: actions/upload-artifact@v3
       with:
