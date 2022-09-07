@@ -43,4 +43,4 @@ jobs:
       with:
         name: nuget-packages
     - name: Push NuGet package
-      run: dotnet nuget push **/*.nupkg -s nuget.org -k ${{ secrets.NUGET_API_KEY }}
+      run: dotnet nuget push **/*.nupkg -s nuget.org -k ${{ secrets.NUGET_API_KEY }} --skip-duplicate
