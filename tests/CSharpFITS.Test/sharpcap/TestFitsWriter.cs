@@ -15,12 +15,17 @@ namespace CSharpFITS_v1._1.tests.sharpcap
     public class TestFitsWriter
     {
         [Test]
-        public void TestBrokenFits()
+        [TestCase(@"C:\Users\robin\Downloads\M2-FITS-SC\M_2_Light_001.fits")]
+        public void TestBrokenFits(string file)
         {
-            var strm = File.OpenRead(@"C:\Users\robin\Downloads\M2-FITS-SC\M_2_Light_001.fits");
-            var f = new Fits();
-            f.Read(strm);
-
+            if (File.Exists(file))
+            {
+                using var strm = File.OpenRead(file);
+                var f = new Fits();
+                f.Read(strm);
+            } else {
+                Assert.Inconclusive("File does not exist", file);
+            }
         }
 
         [Test]
