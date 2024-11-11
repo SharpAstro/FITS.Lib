@@ -1,21 +1,21 @@
 namespace nom.tam.fits
 {
 
-    /*
-    * Copyright: Thomas McGlynn 1997-2007.
-    * Many thanks to David Glowacki (U. Wisconsin) for substantial
-    * improvements, enhancements and bug fixes.
-    * The CSharpFITS package is a C# port of Tom McGlynn's
-    * nom.tam.fits Java package, initially ported by  Samuel Carliles
-    *
-    * Copyright: 2007 Virtual Observatory - India.   
-    *
-    * Use is subject to license terms
-    */
-    using nom.tam.util;
-    using System;
-    using System.IO;
-	using nom.tam.image;
+	/*
+	* Copyright: Thomas McGlynn 1997-2007.
+	* Many thanks to David Glowacki (U. Wisconsin) for substantial
+	* improvements, enhancements and bug fixes.
+	* The CSharpFITS package is a C# port of Tom McGlynn's
+	* nom.tam.fits Java package, initially ported by  Samuel Carliles
+	*
+	* Copyright: 2007 Virtual Observatory - India.   
+	*
+	* Use is subject to license terms
+	*/
+	using util;
+	using System;
+	using System.IO;
+	using image;
 	/// <summary>This class instantiates FITS primary HDU and IMAGE extension data.
 	/// Essentially these data are a primitive multi-dimensional array.
 	/// <p>
@@ -27,19 +27,13 @@ namespace nom.tam.fits
 	/// will still return a multi-dimensional array, but the
 	/// image data will not be read until the user explicitly requests.
 	/// it.</p>
-    /// </summary>
-	public class ImageData:Data
+	/// </summary>
+	public class ImageData : Data
 	{
-        /// <summary>Get the size in bytes of the data 
-        /// </summary>
-		override internal int TrueSize
-		{
-			get
-			{
-				return (int) byteSize;
-			}
-			
-		}
+		/// <summary>Get the size in bytes of the data 
+		/// </summary>
+		internal override int TrueSize => (int)byteSize;
+
 		/// <summary>Return the actual data.
 		/// Note that this may return a null when
 		/// the data is not readable.  It might be better
@@ -47,7 +41,7 @@ namespace nom.tam.fits
 		/// a very commonly called method and we prefered
 		/// not to change how users must invoke it.
 		/// </summary>
-		override public Object DataArray
+		public override Object DataArray
 		{
 			get
 			{
@@ -57,67 +51,54 @@ namespace nom.tam.fits
 					{
 						dataArray = tiler.CompleteImage;
 					}
-					catch(Exception)
+					catch (Exception)
 					{
 						return null;
 					}
 				}
-				
+
 				return dataArray;
 			}
 		}
-        /// <summary>
-        /// Returns the ImageTiler instance
-        /// </summary>
-		virtual public ImageTiler Tiler
-		{
-			get
-			{
-				return tiler;
-			}
-			
-		}
-		
+		/// <summary>
+		/// Returns the ImageTiler instance
+		/// </summary>
+		public virtual ImageTiler Tiler => tiler;
+
 		/// <summary>The size of the data 
 		/// </summary>
 		internal long byteSize;
 
-        /// <summary>The actual array of data.  This
+		/// <summary>The actual array of data.  This
 		/// is normally a multi-dimensional primitive array.
 		/// It may be null until the getData() routine is
 		/// invoked, or it may be filled by during the read
 		/// call when a non-random access device is used.
-        /// </summary>
+		/// </summary>
 		internal Object dataArray;
-		
+
 		/// <summary>This class describes an array</summary>
 		protected internal class ArrayDesc
 		{
-			private void  InitBlock(ImageData enclosingInstance)
+			private void InitBlock(ImageData enclosingInstance)
 			{
 				this.enclosingInstance = enclosingInstance;
 			}
-            /// <summary>
-            /// Instance of ImageData
-            /// </summary>
+			/// <summary>
+			/// Instance of ImageData
+			/// </summary>
 			private ImageData enclosingInstance;
-            public ImageData Enclosing_Instance
-			{
-				get
-				{
-					return enclosingInstance;
-				}
-				
-			}
+			public ImageData Enclosing_Instance => enclosingInstance;
+
 			/// <summary>
 			/// Stores the dimension of image data array
 			/// </summary>
 			internal int[] dims;
-            /// <summary>
-            /// Stores the data tpe of image data instance
-            /// </summary>
+			/// <summary>
+			/// Stores the data tpe of image data instance
+			/// </summary>
 			internal Type type;
-			
+
 			internal ArrayDesc(ImageData enclosingInstance, int[] dims, Type type)
 			{
 				InitBlock(enclosingInstance);
@@ -125,79 +106,64 @@ namespace nom.tam.fits
 				this.type = type;
 			}
 		}
-		
+
 		/// <summary>A description of what the data should look like 
 		/// </summary>
 		internal ArrayDesc dataDescription;
-		
+
 		/// <summary>This inner class allows the ImageTiler
 		/// to see if the user has read in the data.
 		/// </summary>
-		protected internal class ImageDataTiler:ImageTiler
+		protected internal class ImageDataTiler : ImageTiler
 		{
-			private void  InitBlock(ImageData enclosingInstance)
+			private void InitBlock(ImageData enclosingInstance)
 			{
 				this.enclosingInstance = enclosingInstance;
 			}
 			private ImageData enclosingInstance;
-			override public Array MemoryImage
-			{
-				get
-				{
-					return (Array)Enclosing_Instance.dataArray;
-				}
-			}
-			public ImageData Enclosing_Instance
-			{
-				get
-				{
-					return enclosingInstance;
-				}
-				
-			}
-			
-			internal ImageDataTiler(ImageData enclosingInstance, RandomAccess o, long offset, ArrayDesc d):base(o, offset, d.dims, d.type)
+			public override Array MemoryImage => (Array)Enclosing_Instance.dataArray;
+
+			public ImageData Enclosing_Instance => enclosingInstance;
+
+			internal ImageDataTiler(ImageData enclosingInstance, nom.tam.util.RandomAccess o, long offset, ArrayDesc d) : base(o, offset, d.dims, d.type)
 			{
 				InitBlock(enclosingInstance);
 			}
-			
+
 		}
-		
+
 		/// <summary>The image tiler associated with this image.</summary>
 		private ImageTiler tiler;
-		
-		
+
+
 		/// <summary>Create an array from a header description.
 		/// This is typically how data will be created when reading
 		/// FITS data from a file where the header is read first.
 		/// This creates an empty array.</summary>
 		/// <param name="h">header to be used as a template.</param>
-        /// <exception cref="FitsException"> FitsException if there was a problem with the header description.</exception>
+		/// <exception cref="FitsException"> FitsException if there was a problem with the header description.</exception>
 		public ImageData(Header h)
 		{
 			dataDescription = ParseHeader(h);
 		}
-		
+
 		protected internal virtual ArrayDesc ParseHeader(Header h)
 		{
-			int bitpix;
-//			int type;
-			int ndim;
-			int[] dims;
+			//			int type;
 			int i;
-			
+
 			//Object dataArray;
 			Type baseClass;
-			
+
 			int gCount = h.GetIntValue("GCOUNT", 1);
 			int pCount = h.GetIntValue("PCOUNT", 0);
 			if (gCount > 1 || pCount != 0)
 			{
 				throw new FitsException("Group data treated as images");
 			}
-			
-			bitpix = (int) h.GetIntValue("BITPIX", 0);
-			
+
+			var bitpix = h.GetIntValue("BITPIX", 0);
+
 			if (bitpix == 8)
 			{
 				baseClass = Type.GetType("System.Byte");
@@ -215,37 +181,36 @@ namespace nom.tam.fits
 				/* This isn't a standard for FITS yet...*/
 				baseClass = Type.GetType("System.Int64");
 			}
-			else if (bitpix == - 32)
+			else if (bitpix == -32)
 			{
 				baseClass = Type.GetType("System.Single");
 			}
-			else if (bitpix == - 64)
+			else if (bitpix == -64)
 			{
 				baseClass = Type.GetType("System.Double");
 			}
 			else
 			{
-				throw new FitsException("Invalid BITPIX:" + bitpix);
+				throw new FitsException($"Invalid BITPIX:{bitpix}");
 			}
-			
-			ndim = h.GetIntValue("NAXIS", 0);
-			dims = new int[ndim];
-			
-			
+
+			var ndim = h.GetIntValue("NAXIS", 0);
+			var dims = new int[ndim];
+
+
 			// Note that we have to invert the order of the axes
 			// for the FITS file to get the order in the array we
 			// are generating.
-			
 			byteSize = 1;
 			for (i = 0; i < ndim; i += 1)
 			{
-				int cdim = h.GetIntValue("NAXIS" + (i + 1), 0);
+				int cdim = h.GetIntValue($"NAXIS{(i + 1)}", 0);
 				if (cdim < 0)
 				{
-					throw new FitsException("Invalid array dimension:" + cdim);
+					throw new FitsException($"Invalid array dimension:{cdim}");
 				}
 				byteSize *= cdim;
-				dims[ndim - i - 1] = (int) cdim;
+				dims[ndim - i - 1] = cdim;
 			}
 			byteSize *= Math.Abs(bitpix) / 8;
 			if (ndim == 0)
@@ -254,14 +219,14 @@ namespace nom.tam.fits
 			}
 			return new ArrayDesc(this, dims, baseClass);
 		}
-		
+
 		/// <summary>Create the equivalent of a null data element.</summary>
 		public ImageData()
 		{
 			dataArray = new byte[0];
 			byteSize = 0;
 		}
-		
+
 		/// <summary>Create an ImageData object using the specified object to
 		/// initialize the data array.
 		/// </summary>
@@ -272,74 +237,73 @@ namespace nom.tam.fits
 		{
 			dataArray = x;
 			byteSize = ArrayFuncs.ComputeSize(x);
-        }
-		
+		}
+
 		/// <summary>Fill header with keywords that describe image data.</summary>
 		/// <param name="head">The FITS header</param>
-        /// <exception cref="FitsException"> FitsException if the object does not contain valid image data.</exception>
+		/// <exception cref="FitsException"> FitsException if the object does not contain valid image data.</exception>
 		internal override void FillHeader(Header head)
 		{
 			if (dataArray == null)
 			{
 				head.NullImage();
-				return ;
+				return;
 			}
-            
+
 			Type classname = ArrayFuncs.GetBaseClass(dataArray);
-			
+
 			int[] dimens = ArrayFuncs.GetDimensions(dataArray);
-			
+
 			if (dimens == null || dimens.Length == 0)
 			{
 				throw new FitsException("Image data object not array. ");
 			}
-			
-			
+
+
 			int bitpix;
-            // Changed from classname[dimens.Length] to classname[classname.IndexOf(".") + 1]
-           
-            switch (classname.ToString())
+			// Changed from classname[dimens.Length] to classname[classname.IndexOf(".") + 1]
+
+			switch (classname.ToString())
 			{
-				case "System.Byte": 
+				case "System.Byte":
 					bitpix = 8;
 					break;
-				case "System.Int16": 
+				case "System.Int16":
 					bitpix = 16;
 					break;
-                case "System.Int32": 
+				case "System.Int32":
 					bitpix = 32;
 					break;
-                case "System.Int64": 
+				case "System.Int64":
 					bitpix = 64;
 					break;
-                case "System.Single": 
-					bitpix = - 32;
+				case "System.Single":
+					bitpix = -32;
 					break;
-                case "System.Double": 
-					bitpix = - 64;
+				case "System.Double":
+					bitpix = -64;
 					break;
 				default:
-                    throw new FitsException("Invalid Object Type for FITS data:" + 
-                            classname.ToString());
+					throw new FitsException($"Invalid Object Type for FITS data:{classname}");
 			}
-			
+
 			// if this is neither a primary header nor an image extension,
 			// make it a primary header
 			head.Simple = true;
 			head.Bitpix = bitpix;
 			head.Naxes = dimens.Length;
-			
+
 			for (int i = 1; i <= dimens.Length; i += 1)
 			{
-				if (dimens[i - 1] == - 1)
+				if (dimens[i - 1] == -1)
 				{
-					throw new FitsException("Unfilled array for dimension: " + i);
+					throw new FitsException($"Unfilled array for dimension: {i}");
 				}
 				head.SetNaxis(i, dimens[dimens.Length - i]);
 			}
 
-            // suggested in .97 version: EXTEND keyword added before PCOUNT and GCOUNT.
-            head.AddValue("EXTEND", true, "Extension permitted"); // Just in case!
+			// suggested in .97 version: EXTEND keyword added before PCOUNT and GCOUNT.
+			head.AddValue("EXTEND", true, "Extension permitted"); // Just in case!
 			head.AddValue("PCOUNT", 0, "No extra parameters");
 			head.AddValue("GCOUNT", 1, "One group");
 		}
@@ -352,24 +316,24 @@ namespace nom.tam.fits
 			// Don't need to read null data (noted by Jens Knudstrup)
 			if (byteSize == 0)
 			{
-				return ;
+				return;
 			}
 			SetFileOffset(i);
-			
+
 			//if(i is RandomAccess)
-            if(i.CanSeek)
+			if (i.CanSeek)
 			{
 				//tiler = new ImageDataTiler(this, (RandomAccess) i, ((RandomAccess) i).FilePointer, dataDescription);
-                tiler = new ImageDataTiler(this, (RandomAccess) i, ((Stream)i).Position, dataDescription);
+				tiler = new ImageDataTiler(this, (nom.tam.util.RandomAccess)i, i.Position, dataDescription);
 				try
 				{
 					double pos = i.Position;
 					//pos = i.Seek((int)byteSize) - pos;
-                    i.Seek((int)byteSize);
+					i.Seek((int)byteSize);
 				}
-				catch(IOException e)
+				catch (IOException e)
 				{
-					throw new FitsException("Unable to skip over data:" + e);
+					throw new FitsException("Unable to skip over data:", e);
 				}
 			}
 			else
@@ -379,26 +343,26 @@ namespace nom.tam.fits
 				{
 					i.ReadArray(dataArray);
 				}
-				catch(IOException e)
+				catch (IOException e)
 				{
-					throw new FitsException("Unable to read image data:" + e);
+					throw new FitsException("Unable to read image data:", e);
 				}
-				
+
 				tiler = new ImageDataTiler(this, null, 0, dataDescription);
 			}
-			
+
 			int pad = FitsUtil.Padding(TrueSize);
 			try
 			{
 				long pos = i.Seek(pad);
-                if(pos != pad)
+				if (pos != pad)
 				{
-                    throw new FitsException("Error skipping padding");
+					throw new FitsException("Error skipping padding");
 				}
 			}
-			catch(IOException e)
+			catch (IOException e)
 			{
-				throw new FitsException("Error reading image padding:" + e);
+				throw new FitsException("Error reading image padding:", e);
 			}
 		}
 		/// <summary>
@@ -410,11 +374,11 @@ namespace nom.tam.fits
 			// Don't need to write null data (noted by Jens Knudstrup)
 			if (byteSize == 0)
 			{
-				return ;
+				return;
 			}
 
-            // changes suggested in .97 version:
-            if (dataArray == null)
+			// changes suggested in .97 version:
+			if (dataArray == null)
 			{
 				if (tiler != null)
 				{
@@ -423,9 +387,9 @@ namespace nom.tam.fits
 					{
 						dataArray = tiler.CompleteImage;
 					}
-					catch(IOException)
+					catch (IOException e)
 					{
-						throw new FitsException("Error attempting to fill image");
+						throw new FitsException("Error attempting to fill image", e);
 					}
 				}
 				else if (dataArray == null && dataDescription != null)
@@ -439,25 +403,25 @@ namespace nom.tam.fits
 					throw new FitsException("Null image data");
 				}
 			}
-			
+
 			try
 			{
 				o.WriteArray(dataArray);
 			}
-			catch(IOException e)
+			catch (IOException e)
 			{
-				throw new FitsException("IO Error on image write: " + e);
+				throw new FitsException($"IO Error on image write: {e.Message}", e);
 			}
-			
+
 			byte[] padding = new byte[FitsUtil.Padding(TrueSize)];
 			try
 			{
 				o.Write(padding);
 				o.Flush();
 			}
-			catch(IOException e)
+			catch (IOException e)
 			{
-				throw new FitsException("Error writing padding: " + e);
+				throw new FitsException($"Error writing padding: {e.Message}", e);
 			}
 		}
 	}

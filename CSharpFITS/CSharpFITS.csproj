@@ -1,20 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;net20;net35;net40;net45</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <Product>CSharpFITS</Product>
     <Company>Virtual Observatory India</Company>
     <Copyright>Thomas McGlynn 1997-2007, Virtual Observatory - India 2007.</Copyright>
+    <LangVersion>9.0</LangVersion>
     <PackageLicenseFile>license.txt</PackageLicenseFile>
-    <AssemblyVersion>1.1.3.0</AssemblyVersion>
-    <FileVersion>1.1.3.0</FileVersion>
+    <AssemblyVersion>1.1.7.0</AssemblyVersion>
+    <FileVersion>1.1.7.0</FileVersion>
     <PackageTags>Astronomy,FITS,Image</PackageTags>
-    <RepositoryUrl>https://github.com/sebgod/csharpfits-rwg0</RepositoryUrl>
-    <PackageProjectUrl>https://github.com/sebgod/csharpfits-rwg0</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/SharpAstro/csharpfits-rwg0</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/SharpAstro/csharpfits-rwg0</PackageProjectUrl>
     <Description>Supports reading and writing FITS files</Description>
-    <Version>1.1.3</Version>
+    <Version>1.1.7</Version>
     <Authors>Virtual Observatory - India</Authors>
     <PackageId>CSharpFITS-rgw0</PackageId>
     <RootNamespace>nom.tam</RootNamespace>

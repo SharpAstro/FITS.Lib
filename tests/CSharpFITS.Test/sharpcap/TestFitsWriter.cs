@@ -1,33 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Drawing;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Text;
 using nom.tam.fits;
 using nom.tam.util;
 using NUnit.Framework;
+using System;
+using System.Drawing;
+using System.IO;
+using System.Runtime.InteropServices;
 
 namespace CSharpFITS_v1._1.tests.sharpcap
 {
     [TestFixture]
     public class TestFitsWriter
     {
-        [Test]
-        [TestCase(@"C:\Users\robin\Downloads\M2-FITS-SC\M_2_Light_001.fits")]
-        public void TestBrokenFits(string file)
-        {
-            if (File.Exists(file))
-            {
-                using var strm = File.OpenRead(file);
-                var f = new Fits();
-                f.Read(strm);
-            } else {
-                Assert.Inconclusive("File does not exist", file);
-            }
-        }
-
         [Test]
         public void TestWrite8bpp()
         {
@@ -217,7 +200,7 @@ namespace CSharpFITS_v1._1.tests.sharpcap
                         ushort[] rawData = new ushort[iLen/2];
                         fixed (ushort* dest = rawData)
                         {
-                            NativeMethods.RtlMoveMemory(new IntPtr(dest), ipUnpacked, (uint) iLen);
+                            Buffer.MemoryCopy((void*)ipUnpacked, dest, iLen, iLen);
                         }
                         return ReshapeArray(rawData);
                     }
@@ -226,7 +209,7 @@ namespace CSharpFITS_v1._1.tests.sharpcap
                         uint[] rawData = new uint[iLen/4];
                         fixed (uint* dest = rawData)
                         {
-                            NativeMethods.RtlMoveMemory(new IntPtr(dest), ipUnpacked, (uint) iLen);
+                            Buffer.MemoryCopy((void*)ipUnpacked, dest, iLen, iLen);
                         }
                         return ReshapeArray(rawData);
                     }
@@ -235,7 +218,7 @@ namespace CSharpFITS_v1._1.tests.sharpcap
                         ushort[] rawData = new ushort[iLen/2];
                         fixed (ushort* dest = rawData)
                         {
-                            NativeMethods.RtlMoveMemory(new IntPtr(dest), ipUnpacked, (uint) iLen);
+                            Buffer.MemoryCopy((void*)ipUnpacked, dest, iLen, iLen);
                         }
                         return ReshapeArray(rawData);
                     }
@@ -383,13 +366,6 @@ namespace CSharpFITS_v1._1.tests.sharpcap
 
                     return result;
                 }
-            }
-
-            private class NativeMethods
-            {
-                [SuppressMessage("Microsoft.Interoperability", "CA1401:PInvokesShouldNotBeVisible"), DllImport("kernel32.dll")]
-                public static extern void RtlMoveMemory(IntPtr dest, IntPtr src, uint len);
-
             }
         }
     }

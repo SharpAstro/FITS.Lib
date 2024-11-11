@@ -14,7 +14,6 @@ namespace nom.tam.util
     using System;
     using System.Collections;
     using System.IO;
-    using System.Runtime.InteropServices;
 
     /// <summary>
     /// summary description for BufferedDataStream.
@@ -51,63 +50,29 @@ namespace nom.tam.util
 
         #region ArrayDataIO Members
         #region Properties
-        public override bool CanRead
-        {
-            get
-            {
-                return _s.CanRead;
-            }
-        }
+        public override bool CanRead => _s.CanRead;
 
-        public override bool CanSeek
-        {
-            get
-            {
-                /*
+        public override bool CanSeek =>
+            /*
                 if(_s is ConfigStream)
                 {
                   return ((ConfigStream)_s).CanSeek;
                 }
                 */
-                return _s.CanSeek;
-            }
-        }
+            _s.CanSeek;
 
-        public override bool CanWrite
-        {
-            get
-            {
-                return _s.CanWrite;
-            }
-        }
+        public override bool CanWrite => _s.CanWrite;
 
-        public override long Length
-        {
-            get
-            {
-                return _s.Length;
-            }
-        }
+        public override long Length => _s.Length;
 
         public override long Position
         {
-            get
-            {
-                return _s.Position;
-            }
-            set
-            {
-                _s.Position = value;
-            }
+            get => _s.Position;
+            set => _s.Position = value;
         }
 
-        protected override Stream BaseStream
-        {
-            get
-            {
-                return _s;
-            }
-        }
+        protected override Stream BaseStream => _s;
+
         #endregion
 
         #region Class Variables
@@ -208,7 +173,7 @@ namespace nom.tam.util
 
             if (!o.GetType().IsArray)
             {
-                throw new IOException("Invalid object passed to BufferedDataStream.ReadArray:" + o.GetType().FullName);
+                throw new IOException($"Invalid object passed to BufferedDataStream.ReadArray:{o.GetType().FullName}");
             }
 
             // Is this a multidimensional array?  If so process recursively.
@@ -270,7 +235,7 @@ namespace nom.tam.util
                 }
                 else
                 {
-                    throw new IOException("Invalid object passed to BufferedDataStream.ReadArray: " + o.GetType().FullName);
+                    throw new IOException($"Invalid object passed to BufferedDataStream.ReadArray: {o.GetType().FullName}");
                 }
             }
 
@@ -690,7 +655,7 @@ namespace nom.tam.util
         {
             if (!o.GetType().IsArray)
             {
-                throw new IOException("Invalid object passed to BufferedDataStream.WriteArray() - " + o.GetType().FullName);
+                throw new IOException($"Invalid object passed to BufferedDataStream.WriteArray() - {o.GetType().FullName}");
             }
             Type type = o.GetType();
             int rank = ((Array)o).Rank;
@@ -759,7 +724,7 @@ namespace nom.tam.util
                 }
                 else
                 {
-                    throw new IOException("Invalid object passed to BufferedDataStream.WriteArray: " + o.GetType().FullName);
+                    throw new IOException($"Invalid object passed to BufferedDataStream.WriteArray: {o.GetType().FullName}");
                 }
             }
         }

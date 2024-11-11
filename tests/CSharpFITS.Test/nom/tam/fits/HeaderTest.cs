@@ -2,9 +2,6 @@ using System;
 using System.Collections;
 using System.IO;
 using NUnit.Framework;
-
-using nom.tam.fits;
-using nom.tam.image;
 using nom.tam.util;
 
 namespace nom.tam.fits
@@ -29,7 +26,7 @@ namespace nom.tam.fits
             f.AddHDU(hdu);
             f.Write(bf);
             bf.Close();
-           
+
             f = new Fits("ht1.fits");
             hdu = (ImageHDU)f.GetHDU(0);
             Header hdr = hdu.Header;
@@ -69,7 +66,7 @@ namespace nom.tam.fits
         [Test]
         public void TestCursor()
         {
-            Fits f = new Fits("testdocs\\ht1.fits");
+            Fits f = new Fits("testdocs/ht1.fits");
             ImageHDU hdu = (ImageHDU)f.GetHDU(0);
             Header hdr = hdu.Header;
             Cursor c = hdr.GetCursor();
@@ -193,7 +190,7 @@ namespace nom.tam.fits
         [Test]
         public void TestBadHeader()
         {
-            Fits f = new Fits("testdocs\\ht1.fits");
+            Fits f = new Fits("testdocs/ht1.fits");
             ImageHDU hdu = (ImageHDU)f.GetHDU(0);
             Header hdr = hdu.Header;
             Cursor c = hdr.GetCursor();
@@ -207,7 +204,7 @@ namespace nom.tam.fits
             {
                 hdr.Rewrite();
             }
-            catch (Exception )
+            catch (Exception)
             {
                 thrown = true;
             }
@@ -224,7 +221,7 @@ namespace nom.tam.fits
             // Should be rewriteable until we add enough cards to
             // start a new block.
 
-            Fits f = new Fits("testdocs\\ht1.fits");
+            Fits f = new Fits("testdocs/ht1.fits");
             ImageHDU hdu = (ImageHDU)f.GetHDU(0);
             Header hdr = hdu.Header;
             Cursor c = hdr.GetCursor();
@@ -236,8 +233,8 @@ namespace nom.tam.fits
             while (hdr.Rewriteable)
             {
                 int nbx = (hdr.NumberOfCards - 1) / 36;
-                Assertion.AssertEquals("Rewrite:" + nbx, nb == nbx, hdr.Rewriteable);
-                c.Add(new HeaderCard("DUMMY" + nbx, null, null));
+                Assertion.AssertEquals($"Rewrite:{nbx}", nb == nbx, hdr.Rewriteable);
+                c.Add(new HeaderCard($"DUMMY{nbx}", null, null));
             }
             f.Close();
         }

@@ -1,21 +1,21 @@
 namespace nom.tam.util
 {
-  /*
-  * Copyright: Thomas McGlynn 1997-2007.
-  * 
-  * The CSharpFITS package is a C# port of Tom McGlynn's
-  * nom.tam.fits Java package, initially ported by  Samuel Carliles
-  *
-  * Copyright: 2007 Virtual Observatory - India. 
-  *
-  * Use is subject to license terms
-  */
+    /*
+    * Copyright: Thomas McGlynn 1997-2007.
+    * 
+    * The CSharpFITS package is a C# port of Tom McGlynn's
+    * nom.tam.fits Java package, initially ported by  Samuel Carliles
+    *
+    * Copyright: 2007 Virtual Observatory - India. 
+    *
+    * Use is subject to license terms
+    */
     using System;
     using System.Collections;
-    using nom.tam.fits;
+    using fits;
     // suggested in .99.1 version: 
     // Changes made as the data structure storing keys in ArrayList and values in Hashtable.
-      
+
     /// <summary>
     /// This class implements a structure which can
     ///   be accessed either through a hash or
@@ -37,7 +37,7 @@ namespace nom.tam.util
     ///   HashedListCursor which extends the Cursor
     ///   interface to allow adding and deleting entries.
     /// </summary>
-     public class HashedList : IDictionary
+    public class HashedList : IDictionary
     {
         #region Instance Variables
 
@@ -87,10 +87,7 @@ namespace nom.tam.util
 
                 return keyed[key];
             }
-            set
-            {
-                Add(key, value);
-            }
+            set => Add(key, value);
         }
 
         // suggested in .99.1 version: 
@@ -112,13 +109,8 @@ namespace nom.tam.util
 
 
         /// <summary>Is the HashedList empty?</summary>
-        public bool Empty
-        {
-            get
-            {
-                return keyed.Count == 0;
-            }
-        }
+        public bool Empty => keyed.Count == 0;
+
         #endregion
 
         /*
@@ -139,7 +131,7 @@ namespace nom.tam.util
 		/// easily access the state of the associated HashedList.
 		/// </summary>
 		*/
-        private class HashedListCursor : Cursor, System.Collections.IDictionaryEnumerator
+        private class HashedListCursor : Cursor, IDictionaryEnumerator
         {
 
             protected class NullKey
@@ -186,12 +178,12 @@ namespace nom.tam.util
 
                     Object key = Enclosing_Instance.ordered[c];
                     HeaderCard hc = (HeaderCard)Enclosing_Instance.keyed[key];
-                     //   return Enclosing_Instance[c];
+                    //   return Enclosing_Instance[c];
 
                     return hc.Key;
                 }
 
-               set
+                set
                 {
                     if (Enclosing_Instance.ContainsKey(value))
                     {
@@ -229,7 +221,7 @@ namespace nom.tam.util
                         c++;
 
                     return ((c < 0) || (c >= Enclosing_Instance.Count)) ?
-                                      null : (Object)this.Entry;
+                                      null : (Object)Entry;
                 }
             }
 
@@ -297,7 +289,7 @@ namespace nom.tam.util
             /// the entry that would be returned in the next 'next' call, and
             /// that call will not be affected by the insertion. 
             /// Note: this method is not in the IEnumerator interface.</summary>
-            public void Add(System.Object val)
+            public void Add(Object val)
             {
                 if (current == -1)
                     MoveNext();
@@ -326,7 +318,7 @@ namespace nom.tam.util
             /// 'next'.  The return value for that call is unaffected.
             /// Note: this method is not in the IEnumerator interface.
             /// </summary>
-            public void Add(System.Object key, System.Object val)
+            public void Add(Object key, Object val)
             {
                 if (current == -1)
                     MoveNext();
@@ -345,15 +337,9 @@ namespace nom.tam.util
                 //System.Console.Out.WriteLine("Cursor Started from position: #" + current);
             }
 
-            protected HashedList Enclosing_Instance
-            {
-                get
-                {
-                    return enclosingInstance;
-                }
-            }
+            protected HashedList Enclosing_Instance => enclosingInstance;
 
-            private HashedList enclosingInstance;
+            private readonly HashedList enclosingInstance;
             /// <summary>The element that will be returned by next.</summary>
             private int current;
             #endregion
@@ -364,7 +350,7 @@ namespace nom.tam.util
         #region Add Methods
 
         /// <summary>Add an element to the end of the list.</summary>
-        public bool Add(System.Object val)
+        public bool Add(Object val)
         {
             int nKey = unkeyedIndex;
             unkeyedIndex += 1;
@@ -378,7 +364,7 @@ namespace nom.tam.util
         /// <param name="key">The hash key for the new object.  This may be null
         /// for an unkeyed entry.</param>
         /// <param name="reference">The actual object being stored.</param>
-        public bool Add(int pos, System.Object key, System.Object val)
+        public bool Add(int pos, Object key, Object val)
         {
             if (keyed.ContainsKey(key))
             {
@@ -425,11 +411,11 @@ namespace nom.tam.util
         /// </summary>
         /// <param name="key"></param>
         /// <returns>returns false if key not found in has or true on success</returns>
-        public bool RemoveKey(System.Object key)
+        public bool RemoveKey(Object key)
         {
             if (keyed.ContainsKey(key))
             {
-                System.Console.Out.WriteLine("Removing " + key + "-" + keyed[key]);
+                //System.Console.Out.WriteLine("Removing " + key + "-" + keyed[key]);
                 keyed.Remove(key);
                 ordered.Remove(key);
                 return true;
@@ -464,7 +450,7 @@ namespace nom.tam.util
             }
             else
             {
-                throw new Exception("Unknown key for iterator:" + key);
+                throw new Exception($"Unknown key for iterator:{key}");
             }
         }
 
@@ -477,7 +463,7 @@ namespace nom.tam.util
             }
             else
             {
-                throw new Exception("Invalid index for iterator: #" + n);
+                throw new Exception($"Invalid index for iterator: #{n}");
             }
         }
         #endregion
@@ -517,7 +503,7 @@ namespace nom.tam.util
         }
 
         /// <summary>Check if the key is included in the list.</summary>
-        public bool ContainsKey(System.Object key)
+        public bool ContainsKey(Object key)
         {
             return keyed.ContainsKey(key);
         }
@@ -541,36 +527,19 @@ namespace nom.tam.util
 
         #region ICollection Members
 
-        public bool IsSynchronized
-        {
-            get
-            {
-                return false;
-            }
-        }
+        public bool IsSynchronized => false;
+
         /// <summary>
         /// Gets the count of hashtable
         /// </summary>
-        public int Count
-        {
-            get
-            {
-                return keyed.Count;
-            }
-        }
+        public int Count => keyed.Count;
 
         public void CopyTo(Array array, int index)
         {
             throw new InvalidCastException("Sorry, elements of this list can't be copied into an array.");
         }
 
-        public object SyncRoot
-        {
-            get
-            {
-                return this;
-            }
-        }
+        public object SyncRoot => this;
 
         /// <summary>Convert to an array of objects</summary>
         public Object[] toArray()
@@ -602,13 +571,8 @@ namespace nom.tam.util
 
         #region IDictionary Members
 
-        public bool IsReadOnly
-        {
-            get
-            {
-                return false;
-            }
-        }
+        public bool IsReadOnly => false;
+
         /// <summary>
         /// gets the current cursor
         /// </summary>
@@ -618,7 +582,7 @@ namespace nom.tam.util
         }
 
         /// <summary>Add a keyed element to the end of the list.</summary>
-        public void Add(System.Object key, System.Object val)
+        public void Add(Object key, Object val)
         {
             Add(ordered.Count, key, val);
         }
@@ -639,7 +603,7 @@ namespace nom.tam.util
         /// <summary>Remove a keyed object from the list.  Unkeyed
         /// objects can be removed from the list using a
         /// HashedListCursor.</summary>
-        public void Remove(System.Object key)
+        public void Remove(Object key)
         {
             if (keyed.ContainsKey(key))
             {
@@ -674,7 +638,7 @@ namespace nom.tam.util
         /// </summary>
         public bool RemoveUnkeyedObject(Object val)
         {
-            System.Console.Out.WriteLine("In RemoveUnkeyedObject method.");
+            //System.Console.Out.WriteLine("In RemoveUnkeyedObject method.");
             if (keyed.ContainsValue(val))
             {
                 for (int i = 0; i < ordered.Count; i += 1)
@@ -757,32 +721,14 @@ namespace nom.tam.util
         /// <summary>
         /// gets the values in hashtable
         /// </summary>
-        public ICollection Values
-        {
-            get
-            {
-                return keyed.Values;
-            }
-        }
+        public ICollection Values => keyed.Values;
+
         /// <summary>
         /// Gets the keys in hashtable
         /// </summary>
-        public ICollection Keys
-        {
-            get
-            {
-                return keyed.Keys;
-            }
-        }
-        
-        public bool IsFixedSize
-        {
-            get
-            {
-                return false;
-            }
-        }
+        public ICollection Keys => keyed.Keys;
 
+        public bool IsFixedSize => false;
 
         #endregion
 

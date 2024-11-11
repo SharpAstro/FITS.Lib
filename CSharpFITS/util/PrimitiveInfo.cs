@@ -11,29 +11,29 @@ namespace nom.tam.util
      * Use is subject to license terms
      */
     using System;
-	using System.Collections;
+    using System.Collections;
 
     /// <Remarks>This interface collects some information about C# primitives.</Remarks>
     public class PrimitiveInfo
-	{
+    {
         /// <summary>Sizes.</summary>
-        public readonly static Hashtable sizes;
+        public static readonly Hashtable sizes;
 
         static PrimitiveInfo()
         {
             sizes = new Hashtable();
             sizes[typeof(byte)] = 1; // BitConverter.GetBytes((byte)0).Length;
-            sizes[typeof(sbyte)] = BitConverter.GetBytes((sbyte)0).Length;
+            sizes[typeof(sbyte)] = 1;
             sizes[typeof(bool)] = BitConverter.GetBytes(true).Length;
             sizes[typeof(char)] = 1;//BitConverter.GetBytes('a').Length;
             sizes[typeof(short)] = BitConverter.GetBytes((short)0).Length;
             sizes[typeof(ushort)] = BitConverter.GetBytes((ushort)0).Length;
-            sizes[typeof(int)] = BitConverter.GetBytes((int)0).Length;
+            sizes[typeof(int)] = BitConverter.GetBytes(0).Length;
             sizes[typeof(uint)] = BitConverter.GetBytes((uint)0).Length;
             sizes[typeof(long)] = BitConverter.GetBytes((long)0).Length;
             sizes[typeof(ulong)] = BitConverter.GetBytes((ulong)0).Length;
             sizes[typeof(float)] = BitConverter.GetBytes((float)0.0).Length;
-            sizes[typeof(double)] = BitConverter.GetBytes((double)0.0).Length;
+            sizes[typeof(double)] = BitConverter.GetBytes(0.0).Length;
         }
 
     }

@@ -12,22 +12,22 @@ env:
 jobs:
   build:
 
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Setup .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: 6.0.x
+        dotnet-version: 8.0.x
     - name: Restore dependencies
-      run: dotnet restore /p:Configuration=$env:BUILD_CONF
+      run: dotnet restore
     - name: Build
-      run: dotnet build /p:Configuration=$env:BUILD_CONF
+      run: dotnet build -c $BUILD_CONF
     - name: Test
-      run: dotnet test /p:Configuration=$env:BUILD_CONF
+      run: dotnet test -c $BUILD_CONF
     - name: Upload Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: nuget-packages
         path: '**/*.nupkg'
@@ -39,7 +39,7 @@ jobs:
 
     steps:
     - name: Download NuGet packages
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: nuget-packages
     - name: Push NuGet package

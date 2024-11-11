@@ -1,8 +1,5 @@
 
 using System;
-using System.Collections.Generic;
-using System.Text;
-using nom.tam.fits;
 using nom.tam.util;
 using System.IO;
 using NUnit.Framework;
@@ -12,25 +9,24 @@ namespace nom.tam.fits
     [TestFixture]
     public class BinaryTableTester
     {
+        readonly byte[] bytes = new byte[50];
+        readonly byte[][] bits = new byte[50][];
+        readonly bool[] bools = new bool[50];
 
-        byte[] bytes = new byte[50];
-        byte[][] bits = new byte[50][];
-        bool[] bools = new bool[50];
+        readonly short[][] shorts = new short[50][];
 
-        short[][] shorts = new short[50][];
+        readonly int[] ints = new int[50];
+        readonly float[][][] floats = new float[50][][];
 
-        int[] ints = new int[50];
-        float[][][] floats = new float[50][][];
+        readonly double[] doubles = new double[50];
+        readonly long[] longs = new long[50];
+        readonly String[] strings = new String[50];
 
-        double[] doubles = new double[50];
-        long[] longs = new long[50];
-        String[] strings = new String[50];
+        readonly float[][] vf = new float[50][];
+        readonly short[][] vs = new short[50][];
+        readonly double[][] vd = new double[50][];
+        readonly bool[][] vbool = new bool[50][];
 
-        float[][] vf = new float[50][];
-        short[][] vs = new short[50][];
-        double[][] vd = new double[50][];
-        bool[][] vbool = new bool[50][];
-        
         [OneTimeSetUp]
         public void Initialize()
         {
@@ -101,7 +97,7 @@ namespace nom.tam.fits
 
             Fits f = new Fits();
             Object[] data = new Object[]{bytes, bits, bools, shorts, ints,
-	    floats, doubles, longs, strings};
+        floats, doubles, longs, strings};
             f.AddHDU(Fits.MakeHDU(data));
 
             BinaryTableHDU bhdu = (BinaryTableHDU)f.GetHDU(1);
@@ -114,7 +110,7 @@ namespace nom.tam.fits
             f.Write(bf);
             bf.Flush();
             bf.Close();
-         
+
             f = new Fits("bt1.fits");
             f.Read();
 
@@ -143,7 +139,7 @@ namespace nom.tam.fits
                         st[j] = st[j].Trim();
                     }
                 }
-                Assertion.AssertEquals("Data" + i, true, ArrayFuncs.ArrayEquals(data[i], col));
+                Assertion.AssertEquals($"Data{i}", true, ArrayFuncs.ArrayEquals(data[i], col));
             }
             f.Close();
         }
@@ -151,7 +147,7 @@ namespace nom.tam.fits
         [Test]
         public void TestRowDelete()
         {
-            Fits f = new Fits("testdocs\\bt1.fits");
+            Fits f = new Fits("testdocs/bt1.fits");
             f.Read();
 
             BinaryTableHDU thdu = (BinaryTableHDU)f.GetHDU(1);
@@ -209,14 +205,14 @@ namespace nom.tam.fits
 
             for (int i = 0; i < data.Length; i += 1)
             {
-                Assertion.AssertEquals("vardata(" + i + ")", true, ArrayFuncs.ArrayEquals(data[i], bhdu.GetColumn(i)));
+                Assertion.AssertEquals($"vardata({i})", true, ArrayFuncs.ArrayEquals(data[i], bhdu.GetColumn(i)));
             }
-           
+
         }
         [Test]
         public void TestSet()
         {
-            Fits f = new Fits("testdocs\\bt2.fits", FileAccess.Read);
+            Fits f = new Fits("testdocs/bt2.fits", FileAccess.Read);
             f.Read();
             BinaryTableHDU bhdu = (BinaryTableHDU)f.GetHDU(1);
             Header hdr = bhdu.Header;
@@ -230,7 +226,7 @@ namespace nom.tam.fits
             BufferedFile bdos = new BufferedFile("bt2a.fits", FileAccess.ReadWrite, FileShare.ReadWrite);
             f.Write(bdos);
             bdos.Close();
-           
+
             f = new Fits("bt2a.fits");
             bhdu = (BinaryTableHDU)f.GetHDU(1);
             float[] xdta = (float[])bhdu.GetElement(4, 1);
@@ -305,7 +301,7 @@ namespace nom.tam.fits
             BufferedFile bdos = new BufferedFile("bt3.fits", FileAccess.ReadWrite, FileShare.ReadWrite);
             f.Write(bdos);
             bdos.Close();
-           
+
             f = new Fits("bt3.fits");
             BinaryTableHDU bhdu = (BinaryTableHDU)f.GetHDU(1);
             btab = (BinaryTable)bhdu.Data;
@@ -325,7 +321,7 @@ namespace nom.tam.fits
             f.Close();
         }
 
-       [Test]
+        [Test]
         [Ignore("Fails with 'row6' i=54 on code from v1.1")]
         public void BuildByRow()
         {
@@ -343,7 +339,7 @@ namespace nom.tam.fits
                 pt[0] = (float)(i * Math.Sin(i));
                 btab.AddRow(row);
             }
-          
+
             f = new Fits();
             f.AddHDU(Fits.MakeHDU(btab));
             BufferedFile bf = new BufferedFile("bt4.fits", FileAccess.ReadWrite, FileShare.ReadWrite);
@@ -351,7 +347,7 @@ namespace nom.tam.fits
             bf.Flush();
             bf.Close();
 
-           f = new Fits("bt4.fits", FileAccess.Read);
+            f = new Fits("bt4.fits", FileAccess.Read);
 
             btab = (BinaryTable)f.GetHDU(1).Data;
             Assertion.AssertEquals("row1", 100, btab.nRow);
@@ -362,10 +358,10 @@ namespace nom.tam.fits
             Array[] xf = (Array[])btab.GetColumn(0);
             Array[] xft = (Array[])xf.GetValue(50);
             float[] xftt = (float[])xft.GetValue(0);
-            Assertion.AssertEquals("row2", (float)0, (float)xftt[0]);
+            Assertion.AssertEquals("row2", 0, xftt[0]);
             xft = (Array[])xf.GetValue(99);
             xftt = (float[])xft.GetValue(0);
-            Assertion.AssertEquals("row3", (float)(49 * Math.Sin(49)), (float)xftt[0]);
+            Assertion.AssertEquals("row3", (float)(49 * Math.Sin(49)), xftt[0]);
 
             for (int i = 0; i < xf.Length; i += 3)
             {
@@ -383,10 +379,10 @@ namespace nom.tam.fits
             xf = (Array[])btab.GetColumn(0);
             xft = (Array[])xf.GetValue(50);
             xftt = (float[])xft.GetValue(0);
-            Assertion.AssertEquals("row7", 0F, (float)xftt[0]);
+            Assertion.AssertEquals("row7", 0F, xftt[0]);
             xft = (Array[])xf.GetValue(99);
             xftt = (float[])xft.GetValue(0);
-            Assertion.AssertEquals("row8", (float)(49 * Math.Sin(49)), (float)xftt[0]);
+            Assertion.AssertEquals("row8", (float)(49 * Math.Sin(49)), xftt[0]);
 
             for (int i = 0; i < xf.Length; i += 3)
             {
@@ -414,7 +410,7 @@ namespace nom.tam.fits
 
                 x[i][0] = new float[] { i };
 
-                string temp = string.Concat("AString", i);
+                string temp = $"AString{i}";
                 x[i][1] = new string[] { temp };
 
                 int[][] t = new int[2][];
@@ -433,7 +429,7 @@ namespace nom.tam.fits
             BufferedFile bf = new BufferedFile("bt5.fits", FileAccess.ReadWrite, FileShare.ReadWrite);
             f.Write(bf);
             bf.Close();
-            
+
 
             /* Now get rid of some columns */
             BinaryTableHDU xhdu = (BinaryTableHDU)hdu;
@@ -449,7 +445,7 @@ namespace nom.tam.fits
             bf = new BufferedFile("bt6.fits", FileAccess.ReadWrite, FileShare.ReadWrite);
             f.Write(bf);
             bf.Close();
-          
+
             f = new Fits("bt6.fits");
 
             xhdu = (BinaryTableHDU)f.GetHDU(1);
@@ -497,18 +493,18 @@ namespace nom.tam.fits
             FitsFactory.UseAsciiTables = false;
 
             Object[] data = new Object[]{
-	      new String[]{"a", "b", "c", "d", "e", "f"},
-	      new int[]   {1,2,3,4,5,6},
-	      new float[] {1f,2f, 3f, 4f, 5f,6f},
-	      new String[]{"", "", "" , "" , "", ""},
-	      new String[]{"a", "", "c", "", "e", "f"},
-	      new String[]{"", "b", "c", "d", "e", "f"},
-	      new String[]{"a", "b", "c", "d", "e", ""},
-	      new String[]{null, null, null, null, null, null},
-	      new String[]{"a", null, "c", null, "e", "f"},
-	      new String[]{null, "b", "c", "d", "e", "f"},
-	      new String[]{"a", "b", "c", "d", "e", null}
-	    };
+          new String[]{"a", "b", "c", "d", "e", "f"},
+          new int[]   {1,2,3,4,5,6},
+          new float[] {1f,2f, 3f, 4f, 5f,6f},
+          new String[]{"", "", "" , "" , "", ""},
+          new String[]{"a", "", "c", "", "e", "f"},
+          new String[]{"", "b", "c", "d", "e", "f"},
+          new String[]{"a", "b", "c", "d", "e", ""},
+          new String[]{null, null, null, null, null, null},
+          new String[]{"a", null, "c", null, "e", "f"},
+          new String[]{null, "b", "c", "d", "e", "f"},
+          new String[]{"a", "b", "c", "d", "e", null}
+        };
 
             Fits f = new Fits();
             f.AddHDU(Fits.MakeHDU(data));
@@ -516,7 +512,7 @@ namespace nom.tam.fits
             f.Write(ff);
             ff.Flush();
             ff.Close();
-           
+
             f = new Fits("bt8.fits");
             BinaryTableHDU bhdu = (BinaryTableHDU)f.GetHDU(1);
 
