@@ -4,7 +4,7 @@
     <TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
-    <Product>CSharpFITS</Product>
+    <Product>FITS.Lib</Product>
     <Company>Virtual Observatory India</Company>
     <Copyright>Thomas McGlynn 1997-2007, Virtual Observatory - India 2007.</Copyright>
     <LangVersion>9.0</LangVersion>
@@ -12,12 +12,12 @@
     <AssemblyVersion>1.1.7.0</AssemblyVersion>
     <FileVersion>1.1.7.0</FileVersion>
     <PackageTags>Astronomy,FITS,Image</PackageTags>
-    <RepositoryUrl>https://github.com/SharpAstro/csharpfits-rwg0</RepositoryUrl>
-    <PackageProjectUrl>https://github.com/SharpAstro/csharpfits-rwg0</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/SharpAstro/FITS.Lib</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/SharpAstro/FITS.Lib</PackageProjectUrl>
     <Description>Supports reading and writing FITS files</Description>
     <Version>1.1.7</Version>
     <Authors>Virtual Observatory - India</Authors>
-    <PackageId>CSharpFITS-rgw0</PackageId>
+    <PackageId>FITS.Lib</PackageId>
     <RootNamespace>nom.tam</RootNamespace>
   </PropertyGroup>
 
