@@ -1586,7 +1586,7 @@ namespace nom.tam.fits
 
             // change suggested in .99.1 version: used HeaderOrder to sort keyword before write op.
             // Ensure that all cards are in the proper order.
-            cards.Sort(new HeaderOrder());
+            cards.Sort(new NewHeaderOrder());
 
             CheckBeginning();
             CheckEnd();

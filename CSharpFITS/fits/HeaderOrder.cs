@@ -3,6 +3,66 @@ using System.Collections;
 
 namespace nom.tam.fits
 {
+    public class NewHeaderOrder : IComparer
+    {
+
+        public int Compare(object left, object right)
+        {
+            var sLeft = (left as string) ?? string.Empty;
+            var sRight = (right as string) ?? string.Empty;
+
+            var iLeft = ToPosition(sLeft);
+            var iRight = ToPosition(sRight);
+
+            return iLeft.CompareTo(iRight);
+        }
+
+        private long ToPosition(string skey)
+        {
+            switch (skey)
+            {
+                case "SIMPLE":
+                    return -10099;
+                case "XTENSION":
+                    return -10098;
+                case "BITPIX":
+                    return -10097;
+                case "NAXIS":
+                    return -10096;
+                case "NAXIS1":
+                    return -10089;
+                case "NAXIS2":
+                    return -10088;
+                case "NAXIS3":
+                    return -10087;
+                case "NAXIS4":
+                    return -10086;
+                case "PCOUNT":
+                    return -10079;
+                case "GCOUNT":
+                    return -10078;
+                case "TFIELDS":
+                    return -10077;
+                case "BLOCKED":
+                    return -10076;
+                case "":
+                    return long.MaxValue-1;
+                case "END":
+                    return long.MaxValue;
+            }
+
+            var padded = (skey + "        ").Substring(0, 8);
+            var bytes = System.Text.Encoding.ASCII.GetBytes(padded);
+            long position = 0;
+            foreach (var b in bytes)
+            {
+                position = (position << 8) + b;
+            }
+
+            return position;
+        }
+    }
+
     /*
     * Copyright: Thomas McGlynn 1997-2007.
     * Many thanks to David Glowacki (U. Wisconsin) for substantial
