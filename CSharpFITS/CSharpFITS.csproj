@@ -23,6 +23,10 @@
     <RootNamespace>nom.tam</RootNamespace>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
   <ItemGroup>
     <Folder Include="Properties\" />
     <None Include="..\license.txt">
@@ -30,9 +34,9 @@
       <PackagePath></PackagePath>
     </None>
     <None Include="..\README.md">
-		<Pack>True</Pack>
-		<PackagePath></PackagePath>
-	</None>
+        <Pack>True</Pack>
+        <PackagePath></PackagePath>
+    </None>
   </ItemGroup>
 
 

@@ -14,6 +14,7 @@ namespace nom.tam.fits
     using System;
     using System.IO;
     using System.Net;
+    using System.Net.Http;
     using util;
 
     /// <summary>This class comprises static
@@ -240,48 +241,24 @@ namespace nom.tam.fits
         /// </summary>
         public static Stream GetURLStream(String url, int level)
         {
-
-            // Hard coded....sigh
             if (level > 5)
             {
-                throw new IOException("Two many levels of redirection in URL");
+                throw new IOException("Too many levels of redirection in URL");
             }
-            WebRequest request = WebRequest.Create(url);
 
-            /* To remove error "The remote server returned an error: (404) Not Found."
-             * Reads the Internet Explorer nondynamic proxy settings
-             * NOTE: This method is now obsolete. 
-             * TO_DO :need to find the substitute method for this. */
-
-            request.Proxy = WebProxy.GetDefaultProxy();
-            //sets the credentials to submit to the proxy server for authentication
-
-            request.Proxy.Credentials = CredentialCache.DefaultCredentials;
-            WebResponse myResponse = request.GetResponse();
-
-            WebHeaderCollection myWebHeaderCollection = request.Headers;
-
-            // Read through the headers and see if there is a redirection header.
-            // We loop (rather than just do a get on hdrs)
-            // since we want to match without regard to case.
-            String val = null;
-            for (int i = 0; i < myWebHeaderCollection.Count; i++)
+            var handler = new HttpClientHandler
             {
-                String key = myWebHeaderCollection.GetKey(i);
-                if (key != null && key.ToLower().Equals("location"))
-                    val = (String)myWebHeaderCollection.GetValues(key).GetValue(0);
-                if (val != null)
-                {
-                    val = val.Trim();
-                    if (val.Length > 0)
-                    {
-                        return GetURLStream(val, level + 1);
-                    }
-                }
-            }
+                UseDefaultCredentials = true,
+                AllowAutoRedirect = true,
+                MaxAutomaticRedirections = 50
+            };
 
-            // No redirection
-            return myResponse.GetResponseStream();
+            var client = new HttpClient(handler);
+            var response = client.GetAsync(url).GetAwaiter().GetResult();
+            response.EnsureSuccessStatusCode();
+
+            // Return the stream - caller is responsible for disposal
+            return response.Content.ReadAsStreamAsync().GetAwaiter().GetResult();
         }
     }
 }

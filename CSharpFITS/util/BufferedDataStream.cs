@@ -14,6 +14,9 @@ namespace nom.tam.util
     using System;
     using System.Collections;
     using System.IO;
+#if !NETSTANDARD2_0
+    using System.Buffers.Binary;
+#endif
 
     /// <summary>
     /// summary description for BufferedDataStream.
@@ -355,14 +358,10 @@ namespace nom.tam.util
 
             try
             {
-                byte bPrime = 0;
                 byte[] tbuf = _in.ReadBytes(charByteStride * size);
                 for (int b = 0; b < tbuf.Length; ++nRead, b += charByteStride)
                 {
-                    bPrime = tbuf[b];
-                    tbuf[b] = tbuf[b + 1];
-                    tbuf[b + 1] = bPrime;
-                    buf[nRead + offset] = BitConverter.ToChar(tbuf, b);
+                    buf[nRead + offset] = (char)((tbuf[b] << 8) | tbuf[b + 1]);
                 }
             }
             catch (Exception)
@@ -370,9 +369,6 @@ namespace nom.tam.util
                 nRead = 0;
             }
 
-            //return nRead;
-
-            // return no of bytes to jump for next read. hence, it is nRead times charByteStride
             return nRead * charByteStride;
         }
 
@@ -382,24 +378,24 @@ namespace nom.tam.util
 
             try
             {
-                byte bPrime = 0;
                 byte[] tbuf = _in.ReadBytes(shortByteStride * size);
+#if NETSTANDARD2_0
                 for (int b = 0; b < tbuf.Length; ++nRead, b += shortByteStride)
                 {
-                    bPrime = tbuf[b];
-                    tbuf[b] = tbuf[b + 1];
-                    tbuf[b + 1] = bPrime;
-                    buf[nRead + offset] = BitConverter.ToInt16(tbuf, b);
+                    buf[nRead + offset] = (short)((tbuf[b] << 8) | tbuf[b + 1]);
                 }
+#else
+                for (int b = 0; b < tbuf.Length; ++nRead, b += shortByteStride)
+                {
+                    buf[nRead + offset] = BinaryPrimitives.ReadInt16BigEndian(tbuf.AsSpan(b));
+                }
+#endif
             }
             catch (Exception)
             {
                 nRead = 0;
             }
 
-            //return nRead;
-
-            // return no of bytes to jump for next read. hence, it is nRead times shortByteStride
             return nRead * shortByteStride;
         }
 
@@ -409,27 +405,24 @@ namespace nom.tam.util
 
             try
             {
-                byte bPrime = 0;
                 byte[] tbuf = _in.ReadBytes(intByteStride * size);
+#if NETSTANDARD2_0
                 for (int b = 0; b < tbuf.Length; ++nRead, b += intByteStride)
                 {
-                    bPrime = tbuf[b];
-                    tbuf[b] = tbuf[b + 3];
-                    tbuf[b + 3] = bPrime;
-                    bPrime = tbuf[b + 1];
-                    tbuf[b + 1] = tbuf[b + 2];
-                    tbuf[b + 2] = bPrime;
-                    buf[nRead + offset] = BitConverter.ToInt32(tbuf, b);
+                    buf[nRead + offset] = (tbuf[b] << 24) | (tbuf[b + 1] << 16) | (tbuf[b + 2] << 8) | tbuf[b + 3];
                 }
+#else
+                for (int b = 0; b < tbuf.Length; ++nRead, b += intByteStride)
+                {
+                    buf[nRead + offset] = BinaryPrimitives.ReadInt32BigEndian(tbuf.AsSpan(b));
+                }
+#endif
             }
             catch (Exception)
             {
                 nRead = 0;
             }
 
-            //return nRead;
-
-            // return no of bytes to jump for next read. hence, it is nRead times intByteStride
             return nRead * intByteStride;
         }
 
@@ -439,33 +432,25 @@ namespace nom.tam.util
 
             try
             {
-                byte bPrime = 0;
                 byte[] tbuf = _in.ReadBytes(longByteStride * size);
+#if NETSTANDARD2_0
                 for (int b = 0; b < tbuf.Length; ++nRead, b += longByteStride)
                 {
-                    bPrime = tbuf[b];
-                    tbuf[b] = tbuf[b + 7];
-                    tbuf[b + 7] = bPrime;
-                    bPrime = tbuf[b + 1];
-                    tbuf[b + 1] = tbuf[b + 6];
-                    tbuf[b + 6] = bPrime;
-                    bPrime = tbuf[b + 2];
-                    tbuf[b + 2] = tbuf[b + 5];
-                    tbuf[b + 5] = bPrime;
-                    bPrime = tbuf[b + 3];
-                    tbuf[b + 3] = tbuf[b + 4];
-                    tbuf[b + 4] = bPrime;
-                    buf[nRead + offset] = BitConverter.ToInt64(tbuf, b);
+                    buf[nRead + offset] = ((long)tbuf[b] << 56) | ((long)tbuf[b + 1] << 48) | ((long)tbuf[b + 2] << 40) | ((long)tbuf[b + 3] << 32)
+                                        | ((long)tbuf[b + 4] << 24) | ((long)tbuf[b + 5] << 16) | ((long)tbuf[b + 6] << 8) | tbuf[b + 7];
                 }
+#else
+                for (int b = 0; b < tbuf.Length; ++nRead, b += longByteStride)
+                {
+                    buf[nRead + offset] = BinaryPrimitives.ReadInt64BigEndian(tbuf.AsSpan(b));
+                }
+#endif
             }
             catch (Exception)
             {
                 nRead = 0;
             }
 
-            //return nRead;
-
-            // return no of bytes to jump for next read. hence, it is nRead times longByteStride
             return nRead * longByteStride;
         }
 
@@ -475,29 +460,26 @@ namespace nom.tam.util
 
             try
             {
-                byte bPrime = 0;
                 byte[] tbuf = _in.ReadBytes(floatByteStride * size);
+#if NETSTANDARD2_0
                 for (int b = 0; b < tbuf.Length; ++nRead, b += floatByteStride)
                 {
-                    bPrime = tbuf[b];
-                    tbuf[b] = tbuf[b + 3];
-                    tbuf[b + 3] = bPrime;
-                    bPrime = tbuf[b + 1];
-                    tbuf[b + 1] = tbuf[b + 2];
-                    tbuf[b + 2] = bPrime;
-                    buf[nRead + offset] = BitConverter.ToSingle(tbuf, b);
+                    int intVal = (tbuf[b] << 24) | (tbuf[b + 1] << 16) | (tbuf[b + 2] << 8) | tbuf[b + 3];
+                    unsafe { buf[nRead + offset] = *(float*)&intVal; }
                 }
+#else
+                for (int b = 0; b < tbuf.Length; ++nRead, b += floatByteStride)
+                {
+                    buf[nRead + offset] = BinaryPrimitives.ReadSingleBigEndian(tbuf.AsSpan(b));
+                }
+#endif
             }
             catch (Exception)
             {
                 nRead = 0;
             }
 
-            //return nRead;
-
-            // return no of bytes to jump for next read. hence, it is nRead times floatByteStride
             return nRead * floatByteStride;
-
         }
 
         public override int Read(double[] buf, int offset, int size)
@@ -506,33 +488,26 @@ namespace nom.tam.util
 
             try
             {
-                byte bPrime = 0;
                 byte[] tbuf = _in.ReadBytes(doubleByteStride * size);
+#if NETSTANDARD2_0
                 for (int b = 0; b < tbuf.Length; ++nRead, b += doubleByteStride)
                 {
-                    bPrime = tbuf[b];
-                    tbuf[b] = tbuf[b + 7];
-                    tbuf[b + 7] = bPrime;
-                    bPrime = tbuf[b + 1];
-                    tbuf[b + 1] = tbuf[b + 6];
-                    tbuf[b + 6] = bPrime;
-                    bPrime = tbuf[b + 2];
-                    tbuf[b + 2] = tbuf[b + 5];
-                    tbuf[b + 5] = bPrime;
-                    bPrime = tbuf[b + 3];
-                    tbuf[b + 3] = tbuf[b + 4];
-                    tbuf[b + 4] = bPrime;
-                    buf[nRead + offset] = BitConverter.ToDouble(tbuf, b);
+                    long longVal = ((long)tbuf[b] << 56) | ((long)tbuf[b + 1] << 48) | ((long)tbuf[b + 2] << 40) | ((long)tbuf[b + 3] << 32)
+                                 | ((long)tbuf[b + 4] << 24) | ((long)tbuf[b + 5] << 16) | ((long)tbuf[b + 6] << 8) | tbuf[b + 7];
+                    buf[nRead + offset] = BitConverter.Int64BitsToDouble(longVal);
                 }
+#else
+                for (int b = 0; b < tbuf.Length; ++nRead, b += doubleByteStride)
+                {
+                    buf[nRead + offset] = BinaryPrimitives.ReadDoubleBigEndian(tbuf.AsSpan(b));
+                }
+#endif
             }
             catch (Exception)
             {
                 nRead = 0;
             }
 
-            //return nRead;
-
-            // return no of bytes to jump for next read. hence, it is nRead times doubleByteStride
             return nRead * doubleByteStride;
         }
 
@@ -857,15 +832,15 @@ namespace nom.tam.util
 
         public override void Write(bool[] buf, int offset, int size)
         {
-            if (_outBuf.Length < boolByteStride * size)
+            if (_outBuf.Length < size)
             {
-                _outBuf = new byte[boolByteStride * size];
+                _outBuf = new byte[size];
             }
-            for (int nWritten = 0, b = 0; nWritten < size; ++nWritten, b += boolByteStride)
+            for (int i = 0; i < size; ++i)
             {
-                Buffer.BlockCopy(BitConverter.GetBytes(buf[nWritten + offset]), 0, _outBuf, b, boolByteStride);
+                _outBuf[i] = buf[offset + i] ? (byte)1 : (byte)0;
             }
-            _out.Write(_outBuf, 0, boolByteStride * size);
+            _out.Write(_outBuf, 0, size);
         }
 
         public override void Write(char[] buf, int offset, int size)
@@ -874,14 +849,11 @@ namespace nom.tam.util
             {
                 _outBuf = new byte[charByteStride * size];
             }
-            byte bPrime = 0;
             for (int nWritten = 0, b = 0; nWritten < size; ++nWritten, b += charByteStride)
             {
-                byte[] tbuf = BitConverter.GetBytes(buf[nWritten + offset]);
-                bPrime = tbuf[0];
-                tbuf[0] = tbuf[1];
-                tbuf[1] = bPrime;
-                Buffer.BlockCopy(tbuf, 0, _outBuf, b, charByteStride);
+                char val = buf[nWritten + offset];
+                _outBuf[b] = (byte)(val >> 8);
+                _outBuf[b + 1] = (byte)val;
             }
             _out.Write(_outBuf, 0, charByteStride * size);
         }
@@ -892,17 +864,11 @@ namespace nom.tam.util
             {
                 _outBuf = new byte[shortByteStride * size];
             }
-            byte bPrime = 0;
             for (int nWritten = 0, b = 0; nWritten < size; ++nWritten, b += shortByteStride)
             {
                 short val = buf[nWritten + offset];
-                _outBuf[b] = (byte) (val >> 8);
-                _outBuf[b + 1] = (byte) (val & 0xFF);
-                //byte[] tbuf = BitConverter.GetBytes(buf[nWritten + offset]);
-                //bPrime = tbuf[0];
-                //tbuf[0] = tbuf[1];
-                //tbuf[1] = bPrime;
-                //Buffer.BlockCopy(tbuf, 0, _outBuf, b, shortByteStride);
+                _outBuf[b] = (byte)(val >> 8);
+                _outBuf[b + 1] = (byte)val;
             }
             _out.Write(_outBuf, 0, shortByteStride * size);
         }
@@ -913,22 +879,13 @@ namespace nom.tam.util
             {
                 _outBuf = new byte[intByteStride * size];
             }
-            byte bPrime = 0;
             for (int nWritten = 0, b = 0; nWritten < size; ++nWritten, b += intByteStride)
             {
                 int val = buf[nWritten + offset];
                 _outBuf[b] = (byte)(val >> 24);
-                _outBuf[b + 1] = (byte)((val >> 16) & 0xFF);
-                _outBuf[b + 2] = (byte)((val >> 8) & 0xFF);
-                _outBuf[b + 3] = (byte)(val & 0xFF);
-                //byte[] tbuf = BitConverter.GetBytes(buf[nWritten + offset]);
-                //bPrime = tbuf[0];
-                //tbuf[0] = tbuf[3];
-                //tbuf[3] = bPrime;
-                //bPrime = tbuf[1];
-                //tbuf[1] = tbuf[2];
-                //tbuf[2] = bPrime;
-                //Buffer.BlockCopy(tbuf, 0, _outBuf, b, intByteStride);
+                _outBuf[b + 1] = (byte)(val >> 16);
+                _outBuf[b + 2] = (byte)(val >> 8);
+                _outBuf[b + 3] = (byte)val;
             }
             _out.Write(_outBuf, 0, intByteStride * size);
         }
@@ -939,47 +896,57 @@ namespace nom.tam.util
             {
                 _outBuf = new byte[longByteStride * size];
             }
-            byte bPrime = 0;
             for (int nWritten = 0, b = 0; nWritten < size; ++nWritten, b += longByteStride)
             {
-                byte[] tbuf = BitConverter.GetBytes(buf[nWritten + offset]);
-                bPrime = tbuf[0];
-                tbuf[0] = tbuf[7];
-                tbuf[7] = bPrime;
-                bPrime = tbuf[1];
-                tbuf[1] = tbuf[6];
-                tbuf[6] = bPrime;
-                bPrime = tbuf[2];
-                tbuf[2] = tbuf[5];
-                tbuf[5] = bPrime;
-                bPrime = tbuf[3];
-                tbuf[3] = tbuf[4];
-                tbuf[4] = bPrime;
-                Buffer.BlockCopy(tbuf, 0, _outBuf, b, longByteStride);
+                long val = buf[nWritten + offset];
+                _outBuf[b] = (byte)(val >> 56);
+                _outBuf[b + 1] = (byte)(val >> 48);
+                _outBuf[b + 2] = (byte)(val >> 40);
+                _outBuf[b + 3] = (byte)(val >> 32);
+                _outBuf[b + 4] = (byte)(val >> 24);
+                _outBuf[b + 5] = (byte)(val >> 16);
+                _outBuf[b + 6] = (byte)(val >> 8);
+                _outBuf[b + 7] = (byte)val;
             }
             _out.Write(_outBuf, 0, longByteStride * size);
         }
 
+#if NETSTANDARD2_0
+        public override unsafe void Write(float[] buf, int offset, int size)
+        {
+            if (_outBuf.Length < floatByteStride * size)
+            {
+                _outBuf = new byte[floatByteStride * size];
+            }
+            for (int nWritten = 0, b = 0; nWritten < size; ++nWritten, b += floatByteStride)
+            {
+                float f = buf[nWritten + offset];
+                int val = *(int*)&f;
+                _outBuf[b] = (byte)(val >> 24);
+                _outBuf[b + 1] = (byte)(val >> 16);
+                _outBuf[b + 2] = (byte)(val >> 8);
+                _outBuf[b + 3] = (byte)val;
+            }
+            _out.Write(_outBuf, 0, floatByteStride * size);
+        }
+#else
         public override void Write(float[] buf, int offset, int size)
         {
             if (_outBuf.Length < floatByteStride * size)
             {
                 _outBuf = new byte[floatByteStride * size];
             }
-            byte bPrime = 0;
             for (int nWritten = 0, b = 0; nWritten < size; ++nWritten, b += floatByteStride)
             {
-                byte[] tbuf = BitConverter.GetBytes(buf[nWritten + offset]);
-                bPrime = tbuf[0];
-                tbuf[0] = tbuf[3];
-                tbuf[3] = bPrime;
-                bPrime = tbuf[1];
-                tbuf[1] = tbuf[2];
-                tbuf[2] = bPrime;
-                Buffer.BlockCopy(tbuf, 0, _outBuf, b, floatByteStride);
+                int val = BitConverter.SingleToInt32Bits(buf[nWritten + offset]);
+                _outBuf[b] = (byte)(val >> 24);
+                _outBuf[b + 1] = (byte)(val >> 16);
+                _outBuf[b + 2] = (byte)(val >> 8);
+                _outBuf[b + 3] = (byte)val;
             }
             _out.Write(_outBuf, 0, floatByteStride * size);
         }
+#endif
 
         public override void Write(double[] buf, int offset, int size)
         {
@@ -987,23 +954,17 @@ namespace nom.tam.util
             {
                 _outBuf = new byte[doubleByteStride * size];
             }
-            byte bPrime = 0;
             for (int nWritten = 0, b = 0; nWritten < size; ++nWritten, b += doubleByteStride)
             {
-                byte[] tbuf = BitConverter.GetBytes(buf[nWritten + offset]);
-                bPrime = tbuf[0];
-                tbuf[0] = tbuf[7];
-                tbuf[7] = bPrime;
-                bPrime = tbuf[1];
-                tbuf[1] = tbuf[6];
-                tbuf[6] = bPrime;
-                bPrime = tbuf[2];
-                tbuf[2] = tbuf[5];
-                tbuf[5] = bPrime;
-                bPrime = tbuf[3];
-                tbuf[3] = tbuf[4];
-                tbuf[4] = bPrime;
-                Buffer.BlockCopy(tbuf, 0, _outBuf, b, doubleByteStride);
+                long val = BitConverter.DoubleToInt64Bits(buf[nWritten + offset]);
+                _outBuf[b] = (byte)(val >> 56);
+                _outBuf[b + 1] = (byte)(val >> 48);
+                _outBuf[b + 2] = (byte)(val >> 40);
+                _outBuf[b + 3] = (byte)(val >> 32);
+                _outBuf[b + 4] = (byte)(val >> 24);
+                _outBuf[b + 5] = (byte)(val >> 16);
+                _outBuf[b + 6] = (byte)(val >> 8);
+                _outBuf[b + 7] = (byte)val;
             }
             _out.Write(_outBuf, 0, doubleByteStride * size);
         }
