@@ -1,8 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;net9.0</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;net10.0</TargetFrameworks>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <DebugType>embedded</DebugType>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <Product>FITS.Lib</Product>
     <Company>Virtual Observatory India</Company>
@@ -10,13 +11,13 @@
     <LangVersion>9.0</LangVersion>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>license.txt</PackageLicenseFile>
-    <AssemblyVersion>1.1.8.1</AssemblyVersion>
-    <FileVersion>1.1.8.1</FileVersion>
+    <AssemblyVersion>2.1.8.2</AssemblyVersion>
+    <FileVersion>2.1.8.2</FileVersion>
     <PackageTags>Astronomy,FITS,Image</PackageTags>
     <RepositoryUrl>https://github.com/SharpAstro/FITS.Lib</RepositoryUrl>
     <PackageProjectUrl>https://github.com/SharpAstro/FITS.Lib</PackageProjectUrl>
     <Description>Supports reading and writing FITS files</Description>
-    <Version>1.1.8</Version>
+    <Version>2.1.8</Version>
     <Authors>Virtual Observatory - India</Authors>
     <PackageId>FITS.Lib</PackageId>
     <RootNamespace>nom.tam</RootNamespace>
@@ -28,7 +29,10 @@
       <Pack>True</Pack>
       <PackagePath></PackagePath>
     </None>
-    <None Include="README.md" PackagePath="" Pack="True"></None>
+    <None Include="..\README.md">
+		<Pack>True</Pack>
+		<PackagePath></PackagePath>
+	</None>
   </ItemGroup>
 
 
