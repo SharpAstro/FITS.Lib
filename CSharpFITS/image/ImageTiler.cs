@@ -279,6 +279,7 @@ namespace nom.tam.image
         {
             f.Seek(fileOffset + delta, SeekOrigin.Begin);
 
+            // CA2022: Underlying ArrayDataIO.Read uses exact read logic (see BufferedDataStream.ReadBytesExactly)
             if (base_Renamed == typeof(float))
             {
                 f.Read((float[])output, outputOffset, segment);

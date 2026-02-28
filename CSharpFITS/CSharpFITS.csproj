@@ -11,13 +11,13 @@
     <LangVersion>9.0</LangVersion>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>license.txt</PackageLicenseFile>
-    <AssemblyVersion>2.1.8.2</AssemblyVersion>
-    <FileVersion>2.1.8.2</FileVersion>
+    <AssemblyVersion>3.1.8.2</AssemblyVersion>
+    <FileVersion>3.1.8.2</FileVersion>
     <PackageTags>Astronomy,FITS,Image</PackageTags>
     <RepositoryUrl>https://github.com/SharpAstro/FITS.Lib</RepositoryUrl>
     <PackageProjectUrl>https://github.com/SharpAstro/FITS.Lib</PackageProjectUrl>
     <Description>Supports reading and writing FITS files</Description>
-    <Version>2.1.8</Version>
+    <Version>3.1.8</Version>
     <Authors>Virtual Observatory - India</Authors>
     <PackageId>FITS.Lib</PackageId>
     <RootNamespace>nom.tam</RootNamespace>

@@ -781,18 +781,21 @@ namespace nom.tam.util
                     {
                         short[] s = shortPointers[ishort];
                         ishort += 1;
+                        // CA2022: Underlying ArrayDataIO.Read uses exact read logic (see BufferedDataStream.ReadBytesExactly)
                         is_Renamed.Read(s, arrOffset, size);
                     }
                     else if (typeof(byte).Equals(t))
                     {
                         byte[] b = bytePointers[ibyte];
                         ibyte += 1;
+                        // CA2022: Underlying ArrayDataIO.Read uses exact read logic (see BufferedDataStream.ReadBytesExactly)
                         is_Renamed.Read(b, arrOffset, size);
                     }
                     else if (typeof(float).Equals(t))
                     {
                         float[] f = floatPointers[ifloat];
                         ifloat += 1;
+                        // CA2022: Underlying ArrayDataIO.Read uses exact read logic (see BufferedDataStream.ReadBytesExactly)
                         is_Renamed.Read(f, arrOffset, size);
                     }
                     else if (typeof(double).Equals(t))

@@ -296,7 +296,7 @@ namespace nom.tam.util
 
             try
             {
-                byte[] tbuf = _in.ReadBytes(size);
+                byte[] tbuf = ReadBytesExactly(size);
                 Buffer.BlockCopy(tbuf, 0, buf, offset, tbuf.Length);
                 result = tbuf.Length;
             }
@@ -314,7 +314,7 @@ namespace nom.tam.util
 
             try
             {
-                byte[] tbuf = _in.ReadBytes(size);
+                byte[] tbuf = ReadBytesExactly(size);
                 for (int i = 0; i < tbuf.Length; ++i)
                 {
                     buf[i + offset] = (sbyte)tbuf[i];
@@ -326,7 +326,7 @@ namespace nom.tam.util
                 result = 0;
             }
 
-            return 0;
+            return result;
         }
 
         public override int Read(bool[] buf, int offset, int size)
@@ -335,7 +335,7 @@ namespace nom.tam.util
 
             try
             {
-                byte[] tbuf = _in.ReadBytes(boolByteStride * size);
+                byte[] tbuf = ReadBytesExactly(boolByteStride * size);
                 for (int b = 0; b < tbuf.Length; ++nRead, b += boolByteStride)
                 {
                     buf[nRead + offset] = BitConverter.ToBoolean(tbuf, b);
@@ -358,7 +358,7 @@ namespace nom.tam.util
 
             try
             {
-                byte[] tbuf = _in.ReadBytes(charByteStride * size);
+                byte[] tbuf = ReadBytesExactly(charByteStride * size);
                 for (int b = 0; b < tbuf.Length; ++nRead, b += charByteStride)
                 {
                     buf[nRead + offset] = (char)((tbuf[b] << 8) | tbuf[b + 1]);
@@ -378,7 +378,7 @@ namespace nom.tam.util
 
             try
             {
-                byte[] tbuf = _in.ReadBytes(shortByteStride * size);
+                byte[] tbuf = ReadBytesExactly(shortByteStride * size);
 #if NETSTANDARD2_0
                 for (int b = 0; b < tbuf.Length; ++nRead, b += shortByteStride)
                 {
@@ -405,7 +405,7 @@ namespace nom.tam.util
 
             try
             {
-                byte[] tbuf = _in.ReadBytes(intByteStride * size);
+                byte[] tbuf = ReadBytesExactly(intByteStride * size);
 #if NETSTANDARD2_0
                 for (int b = 0; b < tbuf.Length; ++nRead, b += intByteStride)
                 {
@@ -432,7 +432,7 @@ namespace nom.tam.util
 
             try
             {
-                byte[] tbuf = _in.ReadBytes(longByteStride * size);
+                byte[] tbuf = ReadBytesExactly(longByteStride * size);
 #if NETSTANDARD2_0
                 for (int b = 0; b < tbuf.Length; ++nRead, b += longByteStride)
                 {
@@ -460,7 +460,7 @@ namespace nom.tam.util
 
             try
             {
-                byte[] tbuf = _in.ReadBytes(floatByteStride * size);
+                byte[] tbuf = ReadBytesExactly(floatByteStride * size);
 #if NETSTANDARD2_0
                 for (int b = 0; b < tbuf.Length; ++nRead, b += floatByteStride)
                 {
@@ -488,7 +488,7 @@ namespace nom.tam.util
 
             try
             {
-                byte[] tbuf = _in.ReadBytes(doubleByteStride * size);
+                byte[] tbuf = ReadBytesExactly(doubleByteStride * size);
 #if NETSTANDARD2_0
                 for (int b = 0; b < tbuf.Length; ++nRead, b += doubleByteStride)
                 {
@@ -1048,6 +1048,34 @@ namespace nom.tam.util
         protected byte[] _outBuf;
         protected byte[] _garbageBuf;
         protected int primitiveArrayCount;
+        #endregion
+
+        #region Helper Methods
+        /// <summary>
+        /// Reads exactly the specified number of bytes from the underlying stream.
+        /// Throws EndOfStreamException if fewer bytes are available.
+        /// </summary>
+        /// <param name="count">The number of bytes to read.</param>
+        /// <returns>A byte array containing exactly count bytes.</returns>
+        private byte[] ReadBytesExactly(int count)
+        {
+            byte[] buffer = new byte[count];
+#if NETSTANDARD2_0
+            int totalRead = 0;
+            while (totalRead < count)
+            {
+                int bytesRead = _s.Read(buffer, totalRead, count - totalRead);
+                if (bytesRead == 0)
+                {
+                    throw new EndOfStreamException($"Unable to read {count} bytes from stream. Only {totalRead} bytes were available.");
+                }
+                totalRead += bytesRead;
+            }
+#else
+            _s.ReadExactly(buffer);
+#endif
+            return buffer;
+        }
         #endregion
     }
 }

@@ -23,7 +23,7 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
     - name: Build
-      run: dotnet build -c $BUILD_CONF
+      run: dotnet build -c $BUILD_CONF -p:ContinuousIntegrationBuild=true
     - name: Test
       run: dotnet test -c $BUILD_CONF
     - name: Upload Artifact
