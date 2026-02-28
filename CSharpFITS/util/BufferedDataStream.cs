@@ -79,14 +79,14 @@ namespace nom.tam.util
         #endregion
 
         #region Class Variables
-        protected static int sbyteByteStride = 1;
-        protected static int boolByteStride = BitConverter.GetBytes(true).Length;
-        protected static int charByteStride = BitConverter.GetBytes('a').Length;
-        protected static int shortByteStride = BitConverter.GetBytes((short)0).Length;
-        protected static int intByteStride = BitConverter.GetBytes(0).Length;
-        protected static int longByteStride = BitConverter.GetBytes((long)0).Length;
-        protected static int floatByteStride = BitConverter.GetBytes(0.0f).Length;
-        protected static int doubleByteStride = BitConverter.GetBytes(0.0).Length;
+        protected static readonly int sbyteByteStride = 1;
+        protected static readonly int boolByteStride = BitConverter.GetBytes(true).Length;
+        protected static readonly int charByteStride = BitConverter.GetBytes('a').Length;
+        protected static readonly int shortByteStride = BitConverter.GetBytes((short)0).Length;
+        protected static readonly int intByteStride = BitConverter.GetBytes(0).Length;
+        protected static readonly int longByteStride = BitConverter.GetBytes((long)0).Length;
+        protected static readonly int floatByteStride = BitConverter.GetBytes(0.0f).Length;
+        protected static readonly int doubleByteStride = BitConverter.GetBytes(0.0).Length;
         #endregion
 
         #region Read Methods
@@ -1036,7 +1036,7 @@ namespace nom.tam.util
             _in.Close();
             _out.Close();
             _s.Close();
-            _outBuf = new byte[0];
+            _outBuf = Array.Empty<byte>();
         }
         #endregion
         #endregion

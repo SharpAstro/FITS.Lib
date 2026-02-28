@@ -724,7 +724,7 @@ namespace nom.tam.util
                     Array.Copy(input, offset, output, 0, dimens[0]);
                     return dimens[0];
                 }
-			
+            
                 int total = 0;
                 int[] xdimens = new int[dimens.Length - 1];
           Array.Copy(dimens, 1, xdimens, 0, xdimens.Length);
@@ -1214,15 +1214,15 @@ namespace nom.tam.util
         /// <returns> An array object populated with a simple test pattern.</returns>
         public static System.Object GenerateArray(System.Type baseType, int[] dims)
         {
-			
+            
           // Generate an array and populate it with a test pattern of
           // data.
-			
+            
           System.Object x = ArrayFuncs.NewInstance(baseType, dims);
           testPattern(x, (sbyte) 0);
           return x;
         }
-		
+        
         /// <summary>Just create a simple pattern cycling through valid byte values.
         /// We use bytes because they can be cast to any other numeric type.
         /// </summary>
@@ -1233,7 +1233,7 @@ namespace nom.tam.util
         /// </param>
         public static sbyte TestPattern(System.Object o, sbyte start)
         {
-			
+            
           int[] dims = getDimensions(o);
           if (dims.Length > 1)
           {

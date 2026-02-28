@@ -86,7 +86,16 @@ namespace nom.tam.fits
             {
                 try
                 {
-                    str.Read(heap, 0, heapSize);
+                    int totalRead = 0;
+                    while (totalRead < heapSize)
+                    {
+                        int bytesRead = str.Read(heap, totalRead, heapSize - totalRead);
+                        if (bytesRead == 0)
+                        {
+                            throw new EndOfStreamException($"Unexpected end of stream while reading heap. Expected {heapSize} bytes, got {totalRead}.");
+                        }
+                        totalRead += bytesRead;
+                    }
                 }
                 catch (IOException e)
                 {

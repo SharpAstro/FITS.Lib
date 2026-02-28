@@ -1,4 +1,4 @@
-namespace nom.tam.fits
+    namespace nom.tam.fits
 {
     /*
      * Copyright: Thomas McGlynn 1997-2007.
@@ -27,7 +27,7 @@ namespace nom.tam.fits
         internal virtual bool CanBePrimary => false;
 
         /// <summary>Get the associated header</summary>
-		public virtual Header Header => myHeader;
+        public virtual Header Header => myHeader;
 
         /// <summary>Get the starting offset of the HDU</summary>
         public virtual long FileOffset => myHeader.FileOffset;
@@ -36,7 +36,7 @@ namespace nom.tam.fits
         public virtual Data Data => myData;
 
         /// <summary>Get the non-FITS data object</summary>
-		public virtual Object Kernel
+        public virtual Object Kernel
         {
             get
             {
@@ -52,8 +52,8 @@ namespace nom.tam.fits
         }
 
         /// <summary>Get the total size in bytes of the HDU.</summary>
-		/// <returns>The size in bytes.</returns>
-		public virtual long Size
+        /// <returns>The size in bytes.</returns>
+        public virtual long Size
         {
             get
             {
@@ -134,7 +134,7 @@ namespace nom.tam.fits
         /// <summary>
         /// Returns the value oF GCOUNT from HDU
         /// </summary>
-		public virtual int GroupCount => myHeader.GetIntValue("GCOUNT", 1);
+        public virtual int GroupCount => myHeader.GetIntValue("GCOUNT", 1);
 
         /// <summary>
         /// Returns the value oF BSCALE from HDU
@@ -172,8 +172,8 @@ namespace nom.tam.fits
         }
 
         /// <summary> Get the FITS file creation date as a <CODE>Date</CODE> object.</summary>
-		/// <returns>	either <CODE>null</CODE> or a Date object</returns>
-		public virtual DateTime CreationDate
+        /// <returns>	either <CODE>null</CODE> or a Date object</returns>
+        public virtual DateTime CreationDate
         {
             get
             {
@@ -214,57 +214,57 @@ namespace nom.tam.fits
         }
 
         /// <summary> Get the name of the organization which created this FITS file.</summary>
-		/// <returns>	either <CODE>null</CODE> or a String object</returns>
-		public virtual String Origin => GetTrimmedString("ORIGIN");
+        /// <returns>	either <CODE>null</CODE> or a String object</returns>
+        public virtual String Origin => GetTrimmedString("ORIGIN");
 
         /// <summary> Get the name of the telescope which was used to acquire the data in this FITS file.</summary>
-		/// <returns>	either <CODE>null</CODE> or a String object</returns>
-		public virtual String Telescope => GetTrimmedString("TELESCOP");
+        /// <returns>	either <CODE>null</CODE> or a String object</returns>
+        public virtual String Telescope => GetTrimmedString("TELESCOP");
 
         /// <summary> Get the name of the instrument which was used to acquire the data in this FITS file.</summary>
-		/// <returns>	either <CODE>null</CODE> or a String object</returns>
-		public virtual String Instrument => GetTrimmedString("INSTRUME");
+        /// <returns>	either <CODE>null</CODE> or a String object</returns>
+        public virtual String Instrument => GetTrimmedString("INSTRUME");
 
         /// <summary>Get the name of the person who acquired the data in this FITS file.</summary>
-		/// <returns>	either <CODE>null</CODE> or a String object</returns>
-		public virtual String Observer => GetTrimmedString("OBSERVER");
+        /// <returns>	either <CODE>null</CODE> or a String object</returns>
+        public virtual String Observer => GetTrimmedString("OBSERVER");
 
         /// <summary> Get the name of the observed object in this FITS file.</summary>
-		/// <returns>	either <CODE>null</CODE> or a String object</returns>
-		public virtual String Object => GetTrimmedString("OBJECT");
+        /// <returns>	either <CODE>null</CODE> or a String object</returns>
+        public virtual String Object => GetTrimmedString("OBJECT");
 
         /// <summary> Get the equinox in years for the celestial coordinate system in which
-		/// positions given in either the header or data are expressed.</summary>
-		/// <returns>	either <CODE>null</CODE> or a String object</returns>
-		public virtual double Equinox => myHeader.GetDoubleValue("EQUINOX", -1.0);
+        /// positions given in either the header or data are expressed.</summary>
+        /// <returns>	either <CODE>null</CODE> or a String object</returns>
+        public virtual double Equinox => myHeader.GetDoubleValue("EQUINOX", -1.0);
 
         /// <summary> Get the equinox in years for the celestial coordinate system in which
-		/// positions given in either the header or data are expressed.</summary>
-		/// <returns>	either <CODE>null</CODE> or a String object</returns>
-		/// <deprecated>	Replaced by getEquinox</deprecated>
-		/// <seealso cref="">#getEquinox()</seealso>
-		public virtual double Epoch => myHeader.GetDoubleValue("EPOCH", -1.0);
+        /// positions given in either the header or data are expressed.</summary>
+        /// <returns>	either <CODE>null</CODE> or a String object</returns>
+        /// <deprecated>	Replaced by getEquinox</deprecated>
+        /// <seealso cref="">#getEquinox()</seealso>
+        public virtual double Epoch => myHeader.GetDoubleValue("EPOCH", -1.0);
 
         /// <summary> Return the name of the person who compiled the information in
-		/// the data associated with this header.</summary>
-		/// <returns>	either <CODE>null</CODE> or a String object</returns>
-		public virtual String Author => GetTrimmedString("AUTHOR");
+        /// the data associated with this header.</summary>
+        /// <returns>	either <CODE>null</CODE> or a String object</returns>
+        public virtual String Author => GetTrimmedString("AUTHOR");
 
         /// <summary> Return the citation of a reference where the data associated with
-		/// this header are published.</summary>
-		/// <returns>	either <CODE>null</CODE> or a String object</returns>
-		public virtual String Reference => GetTrimmedString("REFERENC");
+        /// this header are published.</summary>
+        /// <returns>	either <CODE>null</CODE> or a String object</returns>
+        public virtual String Reference => GetTrimmedString("REFERENC");
 
         /// <summary> Return the minimum valid value in the array.</summary>
-		/// <returns>	minimum value.</returns>
-		public virtual double MaximumValue => myHeader.GetDoubleValue("DATAMAX");
+        /// <returns>	minimum value.</returns>
+        public virtual double MaximumValue => myHeader.GetDoubleValue("DATAMAX");
 
         /// <summary> Return the minimum valid value in the array.</summary>
-		/// <returns>	minimum value.</returns>
-		public virtual double MinimumValue => myHeader.GetDoubleValue("DATAMIN");
+        /// <returns>	minimum value.</returns>
+        public virtual double MinimumValue => myHeader.GetDoubleValue("DATAMIN");
 
         /// <summary>Indicate that an HDU is the first element of a FITS file.</summary>
-		internal virtual bool PrimaryHDU
+        internal virtual bool PrimaryHDU
         {
             set
             {
@@ -356,23 +356,23 @@ namespace nom.tam.fits
         /// <summary>
         /// Constant for BitPix short value
         /// </summary>
-		public const int BITPIX_SHORT = 16;
+        public const int BITPIX_SHORT = 16;
         /// <summary>
         /// Constant for BitPix integer value
         /// </summary>
-		public const int BITPIX_INT = 32;
+        public const int BITPIX_INT = 32;
         /// <summary>
         /// Constant for BitPix long value
         /// </summary>
-		public const int BITPIX_LONG = 64;
+        public const int BITPIX_LONG = 64;
         /// <summary>
         /// Constant for BitPix float value
         /// </summary>
-		public const int BITPIX_FLOAT = -32;
+        public const int BITPIX_FLOAT = -32;
         /// <summary>
         /// Constant for BitPix double value
         /// </summary>
-		public const int BITPIX_DOUBLE = -64;
+        public const int BITPIX_DOUBLE = -64;
         #endregion
 
         #region Instance Variables
@@ -444,9 +444,9 @@ namespace nom.tam.fits
         }
 
         /// <summary>Check that this is a valid header for the HDU.</summary>
-		/// <param name="header">to validate.</param>
-		/// <returns> <CODE>true</CODE> if this is a valid header.</returns>
-		public static bool IsHeader(Header header)
+        /// <param name="header">to validate.</param>
+        /// <returns> <CODE>true</CODE> if this is a valid header.</returns>
+        public static bool IsHeader(Header header)
         {
             return false;
         }
@@ -529,22 +529,22 @@ namespace nom.tam.fits
         }
 
         /// <summary>Add boolean information to the header</summary>
-		public virtual void AddValue(String key, bool val, String comment)
+        public virtual void AddValue(String key, bool val, String comment)
         {
             myHeader.AddValue(key, val, comment);
         }
         /// <summary>Add int information to the header</summary>
-		public virtual void AddValue(String key, int val, String comment)
+        public virtual void AddValue(String key, int val, String comment)
         {
             myHeader.AddValue(key, val, comment);
         }
         /// <summary>Add double information to the header</summary>
-		public virtual void AddValue(String key, double val, String comment)
+        public virtual void AddValue(String key, double val, String comment)
         {
             myHeader.AddValue(key, val, comment);
         }
         /// <summary>Add String information to the header</summary>
-		public virtual void AddValue(String key, String val, String comment)
+        public virtual void AddValue(String key, String val, String comment)
         {
             myHeader.AddValue(key, val, comment);
         }
