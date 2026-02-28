@@ -674,7 +674,8 @@ namespace nom.tam.util
                 }
                 else
                 {
-                    throw new IOException("Rectangular array write not supported.");
+                    // Handle rectangular (multi-dimensional) arrays by flattening
+                    WriteRectangularArray((Array)o);
                 }
             }
             else
@@ -726,6 +727,63 @@ namespace nom.tam.util
                 {
                     throw new IOException($"Invalid object passed to BufferedDataStream.WriteArray: {o.GetType().FullName}");
                 }
+            }
+        }
+
+        /// <summary>
+        /// Writes a rectangular (multi-dimensional) array by iterating through all elements in row-major order.
+        /// </summary>
+        /// <param name="array">The rectangular array to write.</param>
+        private void WriteRectangularArray(Array array)
+        {
+            Type elementType = array.GetType().GetElementType();
+            int totalLength = array.Length;
+
+            if (typeof(float).Equals(elementType))
+            {
+                float[] flat = new float[totalLength];
+                Buffer.BlockCopy(array, 0, flat, 0, totalLength * sizeof(float));
+                Write(flat, 0, flat.Length);
+            }
+            else if (typeof(double).Equals(elementType))
+            {
+                double[] flat = new double[totalLength];
+                Buffer.BlockCopy(array, 0, flat, 0, totalLength * sizeof(double));
+                Write(flat, 0, flat.Length);
+            }
+            else if (typeof(int).Equals(elementType))
+            {
+                int[] flat = new int[totalLength];
+                Buffer.BlockCopy(array, 0, flat, 0, totalLength * sizeof(int));
+                Write(flat, 0, flat.Length);
+            }
+            else if (typeof(short).Equals(elementType))
+            {
+                short[] flat = new short[totalLength];
+                Buffer.BlockCopy(array, 0, flat, 0, totalLength * sizeof(short));
+                Write(flat, 0, flat.Length);
+            }
+            else if (typeof(long).Equals(elementType))
+            {
+                long[] flat = new long[totalLength];
+                Buffer.BlockCopy(array, 0, flat, 0, totalLength * sizeof(long));
+                Write(flat, 0, flat.Length);
+            }
+            else if (typeof(byte).Equals(elementType))
+            {
+                byte[] flat = new byte[totalLength];
+                Buffer.BlockCopy(array, 0, flat, 0, totalLength);
+                Write(flat, 0, flat.Length);
+            }
+            else if (typeof(sbyte).Equals(elementType))
+            {
+                sbyte[] flat = new sbyte[totalLength];
+                Buffer.BlockCopy(array, 0, flat, 0, totalLength);
+                Write(flat, 0, flat.Length);
+            }
+            else
+            {
+                throw new IOException($"Rectangular array write not supported for element type: {elementType.FullName}");
             }
         }
 

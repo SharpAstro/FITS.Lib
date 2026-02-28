@@ -762,12 +762,12 @@ namespace nom.tam.util
         internal static long lastTime;
         internal static void resetTime()
         {
-            lastTime = ((DateTime.Now.Ticks - 621355968000000000) / 10000) - (long)TimeZone.CurrentTimeZone.GetUtcOffset(DateTime.Now).TotalMilliseconds;
+            lastTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         }
         internal static double deltaTime()
         {
             long time = lastTime;
-            lastTime = ((DateTime.Now.Ticks - 621355968000000000) / 10000) - (long)TimeZone.CurrentTimeZone.GetUtcOffset(DateTime.Now).TotalMilliseconds;
+            lastTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             return (lastTime - time) / 1000.0;
         }
     }

@@ -43,6 +43,50 @@ namespace CSharpFITS_v1._1.tests.sharpcap
             ablffw.WriteFrameImpl(buffer, cb, new ABitLikeFitsFileWriter.RawFrameInfo() { Binning = 1, CameraName = "Test", ColourSpace = ABitLikeFitsFileWriter.ColourSpaceId.Bayer_BGGR, ExposureMs = 1.0, Width = size.Width, Height = size.Height });
         }
 
+        [Test]
+        public void TestWriteFloatMultiDim2D()
+        {
+            var size = new Size(1024, 1024);
+            ABitLikeFitsFileWriter ablffw = new ABitLikeFitsFileWriter(32, ABitLikeFitsFileWriter.ColourSpaceId.Mono, 4, size, 1, isFloat: true, useJaggedArray: false);
+
+            var cb = size.Width * size.Height * 4;
+            var buffer = Marshal.AllocCoTaskMem(cb);
+            ablffw.WriteFrameImpl(buffer, cb, new ABitLikeFitsFileWriter.RawFrameInfo() { Binning = 1, CameraName = "Test", ColourSpace = ABitLikeFitsFileWriter.ColourSpaceId.Mono, ExposureMs = 1.0, Width = size.Width, Height = size.Height });
+        }
+
+        [Test]
+        public void TestWriteFloatMultiDim3D()
+        {
+            var size = new Size(1024, 1024);
+            ABitLikeFitsFileWriter ablffw = new ABitLikeFitsFileWriter(32, ABitLikeFitsFileWriter.ColourSpaceId.RGB, 4, size, 3, isFloat: true, useJaggedArray: false);
+
+            var cb = size.Width * size.Height * 4 * 3;
+            var buffer = Marshal.AllocCoTaskMem(cb);
+            ablffw.WriteFrameImpl(buffer, cb, new ABitLikeFitsFileWriter.RawFrameInfo() { Binning = 1, CameraName = "Test", ColourSpace = ABitLikeFitsFileWriter.ColourSpaceId.RGB, ExposureMs = 1.0, Width = size.Width, Height = size.Height });
+        }
+
+        [Test]
+        public void TestWriteFloatJagged2D()
+        {
+            var size = new Size(1024, 1024);
+            ABitLikeFitsFileWriter ablffw = new ABitLikeFitsFileWriter(32, ABitLikeFitsFileWriter.ColourSpaceId.Mono, 4, size, 1, isFloat: true, useJaggedArray: true);
+
+            var cb = size.Width * size.Height * 4;
+            var buffer = Marshal.AllocCoTaskMem(cb);
+            ablffw.WriteFrameImpl(buffer, cb, new ABitLikeFitsFileWriter.RawFrameInfo() { Binning = 1, CameraName = "Test", ColourSpace = ABitLikeFitsFileWriter.ColourSpaceId.Mono, ExposureMs = 1.0, Width = size.Width, Height = size.Height });
+        }
+
+        [Test]
+        public void TestWriteFloatJagged3D()
+        {
+            var size = new Size(1024, 1024);
+            ABitLikeFitsFileWriter ablffw = new ABitLikeFitsFileWriter(32, ABitLikeFitsFileWriter.ColourSpaceId.RGB, 4, size, 3, isFloat: true, useJaggedArray: true);
+
+            var cb = size.Width * size.Height * 4 * 3;
+            var buffer = Marshal.AllocCoTaskMem(cb);
+            ablffw.WriteFrameImpl(buffer, cb, new ABitLikeFitsFileWriter.RawFrameInfo() { Binning = 1, CameraName = "Test", ColourSpace = ABitLikeFitsFileWriter.ColourSpaceId.RGB, ExposureMs = 1.0, Width = size.Width, Height = size.Height });
+        }
+
 
         private class ABitLikeFitsFileWriter
         {
@@ -51,14 +95,18 @@ namespace CSharpFITS_v1._1.tests.sharpcap
             private short _bytesPerPixel;
             private Size _size;
             private int _colourPlanes;
+            private bool _isFloat;
+            private bool _useJaggedArray;
 
-            public ABitLikeFitsFileWriter(int significantBitDepth, ColourSpaceId colourSpaceId, short bytesPerPixel, Size size, int colourPlanes)
+            public ABitLikeFitsFileWriter(int significantBitDepth, ColourSpaceId colourSpaceId, short bytesPerPixel, Size size, int colourPlanes, bool isFloat = false, bool useJaggedArray = true)
             {
                 _significantBitDepth = significantBitDepth;
                 _colourSpaceId = colourSpaceId;
                 _bytesPerPixel = bytesPerPixel;
                 _size = size;
                 _colourPlanes = colourPlanes;
+                _isFloat = isFloat;
+                _useJaggedArray = useJaggedArray;
             }
 
             public enum ColourSpaceId
@@ -206,12 +254,24 @@ namespace CSharpFITS_v1._1.tests.sharpcap
                     }
                     case 4:
                     {
-                        uint[] rawData = new uint[iLen/4];
-                        fixed (uint* dest = rawData)
+                        if (_isFloat)
                         {
-                            Buffer.MemoryCopy((void*)ipUnpacked, dest, iLen, iLen);
+                            float[] rawData = new float[iLen/4];
+                            fixed (float* dest = rawData)
+                            {
+                                Buffer.MemoryCopy((void*)ipUnpacked, dest, iLen, iLen);
+                            }
+                            return _useJaggedArray ? ReshapeArrayJagged(rawData) : ReshapeArray(rawData);
                         }
-                        return ReshapeArray(rawData);
+                        else
+                        {
+                            uint[] rawData = new uint[iLen/4];
+                            fixed (uint* dest = rawData)
+                            {
+                                Buffer.MemoryCopy((void*)ipUnpacked, dest, iLen, iLen);
+                            }
+                            return ReshapeArray(rawData);
+                        }
                     }
                     case 6:
                     {
@@ -360,6 +420,85 @@ namespace CSharpFITS_v1._1.tests.sharpcap
                         for (int i = 0; i < width; i++)
                         {
                             result[j][i] = (short) (((rawData[index] << leftShift) >> rightShift) - 32768);
+                            index++;
+                        }
+                    }
+
+                    return result;
+                }
+            }
+
+            private object ReshapeArray(float[] rawData)
+            {
+                if (_colourSpaceId == ColourSpaceId.RGB)
+                {
+                    float[,,] result = new float[3, _size.Height, _size.Width];
+                    for (int plane = 0; plane < 3; plane++)
+                    {
+                        int index = 2 - plane;
+                        for (int j = 0; j < _size.Height; j++)
+                        {
+                            for (int i = 0; i < _size.Width; i++)
+                            {
+                                result[plane, j, i] = rawData[index];
+                                index += _colourPlanes;
+                            }
+                        }
+                    }
+
+                    return result;
+                }
+                else
+                {
+                    float[,] result = new float[_size.Height, _size.Width];
+                    int index = 0;
+                    for (int j = 0; j < _size.Height; j++)
+                    {
+                        for (int i = 0; i < _size.Width; i++)
+                        {
+                            result[j, i] = rawData[index];
+                            index++;
+                        }
+                    }
+
+                    return result;
+                }
+            }
+
+            private object ReshapeArrayJagged(float[] rawData)
+            {
+                if (_colourSpaceId == ColourSpaceId.RGB)
+                {
+                    float[][][] result = new float[3][][];
+                    for (int plane = 0; plane < 3; plane++)
+                    {
+                        int index = 2 - plane;
+                        result[plane] = new float[_size.Height][];
+                        for (int j = 0; j < _size.Height; j++)
+                        {
+                            var width = _size.Width;
+                            result[plane][j] = new float[width];
+                            for (int i = 0; i < width; i++)
+                            {
+                                result[plane][j][i] = rawData[index];
+                                index += _colourPlanes;
+                            }
+                        }
+                    }
+
+                    return result;
+                }
+                else
+                {
+                    float[][] result = new float[_size.Height][];
+                    int index = 0;
+                    for (int j = 0; j < _size.Height; j++)
+                    {
+                        var width = _size.Width;
+                        result[j] = new float[width];
+                        for (int i = 0; i < width; i++)
+                        {
+                            result[j][i] = rawData[index];
                             index++;
                         }
                     }
