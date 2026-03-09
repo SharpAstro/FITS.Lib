@@ -7,6 +7,10 @@ tests/CSharpFITS.Test/testdocs/LDN1089_singleFrame.fits
 *.lock.json
 
 *.cobertura.xml
+coverage_report/
+
+# BenchmarkDotNet
+BenchmarkDotNet.Artifacts/
 
 # User-specific files
 *.suo
