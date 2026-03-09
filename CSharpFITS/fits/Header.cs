@@ -207,20 +207,7 @@ namespace nom.tam.fits
                 cursor.Key = "BITPIX";
                 // after setting the Key, next Key-Value pair should be added at next position
                 cursor.MoveNext();
-                /*
-                    if(!cursor.MoveNext())
-                    {
-                      cursor.MovePrevious();
-                    }
-				*/
-                //try
-                //{
                 cursor.Add("NAXIS", new HeaderCard("NAXIS", value, "Dimensionality"));
-                //}
-                //catch (HeaderCardException e)
-                //{
-                //Console.Error.WriteLine("Impossible exception at setNaxes " + e);
-                //}
             }
         }
         #endregion
@@ -406,62 +393,6 @@ namespace nom.tam.fits
         {
             AddCard(new HeaderCard("HISTORY", null, history));
         }
-        #region crap
-        /*
-        /// <summary>Add or replace a key with the given boolean value and comment.</summary>
-        /// <param name="key">The header key.</param>
-        /// <param name="val">The boolean value.</param>
-        /// <param name="comment">A comment to append to the card.</param>
-        /// <exception cref=""> HeaderCardException If the parameters cannot build a
-        /// valid FITS card.</exception>
-        /// FIX THIS
-        public virtual void AddValue(String key, bool val, String comment)
-        {
-          RemoveCard(key);
-          cursor.Add(key, new HeaderCard(key, val, comment));
-        }
-
-        /// <summary>Add or replace a key with the given double value and comment.
-        /// Note that float values will be promoted to doubles.</summary>
-        /// <param name="key">The header key.</param>
-        /// <param name="val">The double value.</param>
-        /// <param name="comment">A comment to append to the card.</param>
-        /// <exception cref=""> HeaderCardException If the parameters cannot build a
-        /// valid FITS card.</exception>
-        /// FIX THIS
-        public virtual void AddValue(String key, double val, String comment)
-        {
-          RemoveCard(key);
-          cursor.Add(key, new HeaderCard(key, val, comment));
-        }
-
-        /// <summary>Add or replace a key with the given string value and comment.</summary>
-        /// <param name="key">The header key.</param>
-        /// <param name="val">The string value.</param>
-        /// <param name="comment">A comment to append to the card.</param>
-        /// <exception cref=""> HeaderCardException If the parameters cannot build a
-        /// valid FITS card.</exception>
-        /// FIX THIS
-        public virtual void AddValue(String key, String val, String comment)
-        {
-          RemoveCard(key);
-          cursor.Add(key, new HeaderCard(key, val, comment));
-        }
-
-        /// <summary>Add or replace a key with the given long value and comment.
-        /// Note that int's will be promoted to long's.</summary>
-        /// <param name="key">The header key.</param>
-        /// <param name="val">The long value.</param>
-        /// <param name="comment">A comment to append to the card.</param>
-        /// <exception cref=""> HeaderCardException If the parameters cannot build a
-        /// valid FITS card.</exception>
-        /// FIX THIS
-        public virtual void AddValue(String key, long val, String comment)
-        {
-          RemoveCard(key);
-          cursor.Add(key, new HeaderCard(key, val, comment));
-        }
-        */
         #endregion
         #endregion
 
@@ -948,23 +879,6 @@ namespace nom.tam.fits
             //}
         }
 
-        /*
-        /// <summary>Add a COMMENT line.</summary>
-        /// <param name="value">The comment.</param>
-        /// <exception cref="">HeaderCardException If the parameter is not a valid FITS comment.</exception>
-        public virtual void InsertComment(String value_Renamed)
-        {
-          InsertCommentStyle("COMMENT", value_Renamed);
-        }
-    		
-        /// <summary>Add a HISTORY line.</summary>
-        /// <param name="value">The history record.</param>
-        /// <exception cref="">HeaderCardException If the parameter is not a valid FITS comment.</exception>
-        public virtual void InsertHistory(String value_Renamed)
-        {
-          InsertCommentStyle("HISTORY", value_Renamed);
-        }
-        */
         /// <summary>Delete the card associated with the given key.
         /// Nothing occurs if the key is not found.</summary>
         /// <param name="key">The header key.</param>
@@ -1080,26 +994,6 @@ namespace nom.tam.fits
             return card;
         }
 
-        /*
-        /// <summary>Find the card associated with a given key.</summary>
-        /// <param name="key">The header key.</param>
-        /// <returns> <CODE>null</CODE> if the keyword could not be found;
-        /// return the card image otherwise.</returns>
-        /// KILL THIS METHOD
-        public virtual String FindKey(String key)
-        {
-          HeaderCard card = FindCard(key);
-          if(card == null)
-          {
-            return null;
-          }
-          else
-          {
-            return card.ToString();
-          }
-        }
-        */
-
         /// <summary>Replace the key with a new key.  Typically this is used
         /// when deleting or inserting columns so that TFORMx -> TFORMx-1</summary>
         /// <param name="oldKey">The old header keyword.</param>
@@ -1212,7 +1106,6 @@ namespace nom.tam.fits
                 return null;
             }
         }
-        #endregion
 
         /// <summary>Calculate the unpadded size of the data segment from the header information.</summary>
         /// <returns> the unpadded data segment size.</returns>

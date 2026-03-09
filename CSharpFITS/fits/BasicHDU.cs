@@ -454,20 +454,6 @@
         /// <summary>Print out some information about this HDU.</summary>
         public abstract void Info();
 
-        /// <summary>Check if a field is present and if so print it out.</summary>
-        /// <param name="name">The header keyword.</param>
-        /// <returns>Was it found in the header?</returns>
-        internal virtual bool CheckField(String name)
-        {
-            String value_Renamed = myHeader.GetStringValue(name);
-            if (value_Renamed == null)
-            {
-                return false;
-            }
-
-            return true;
-        }
-
         /// <summary>Read out the HDU from the data stream.  This
         /// will overwrite any existing header and data components.
         /// </summary>

@@ -84,25 +84,6 @@ namespace nom.tam.fits
         /// </summary>
         public Type[] Bases => table.Bases;
 
-        /*
-            public char[] Types
-            {
-                get
-                {
-                    if (table == null)
-                    {
-                        try
-                        {
-                            Object generatedAux = DataArray;
-                        }
-                        catch (FitsException e)
-                        {
-                        }
-                    }
-                    return table.Types;
-                }
-            }
-        */
         /// <summary>
         /// Returns the flattened column object array
         /// </summary>
@@ -1862,7 +1843,7 @@ namespace nom.tam.fits
         /// <summary> Is this column a bit column.</summary>
         private bool IsBit(int col)
         {
-            return (flags[col] & COL_BOOLEAN) != 0;
+            return (flags[col] & COL_BIT) != 0;
         }
 
         // .99.1 changes:

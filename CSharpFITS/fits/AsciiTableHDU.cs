@@ -69,10 +69,6 @@ namespace nom.tam.fits
                 return false;
             }
 
-            /*  Type t = ArrayFuncs.GetBaseClass(o);
-                    return t != null && (t.Equals(typeof(String)) || t.Equals(typeof(int)) || t.Equals(typeof(long)) ||
-                t.Equals(typeof(float)) || t.Equals(typeof(double)));
-            */
             if (o is Object[])
             {
                 Object[] oo = (Object[])o;
