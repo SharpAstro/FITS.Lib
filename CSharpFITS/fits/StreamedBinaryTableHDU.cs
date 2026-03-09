@@ -904,13 +904,21 @@ namespace nom.tam.fits
                         {
                             s.Write(padBuf, 0, maxColWidths[i] - len);
                             heapS.Seek(off, SeekOrigin.Begin);
+#if NETSTANDARD2_0
                             int bufread = heapS.Read(_buf, 0, len);
+#else
+                            heapS.ReadExactly(_buf, 0, len);
+#endif
                             s.Write(_buf, 0, len);
                         }
                         else
                         {
                             heapS.Seek(off, SeekOrigin.Begin);
+#if NETSTANDARD2_0
                             heapS.Read(_buf, 0, len);
+#else
+                            heapS.ReadExactly(_buf, 0, len);
+#endif
                             s.Write(_buf, 0, len);
                             s.Write(padBuf, 0, maxColWidths[i] - len);
                         }

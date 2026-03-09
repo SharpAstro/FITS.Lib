@@ -765,6 +765,7 @@ namespace nom.tam.util
                 int iboolean = 0;
 
                 // Loop over the columns within the row.
+#pragma warning disable CA2022 // ArrayDataIO.Read implementations use exact read semantics
                 for (int col = 0; col < arrays.Length; col += 1)
                 {
                     int arrOffset = sizes[col] * row;
@@ -781,21 +782,18 @@ namespace nom.tam.util
                     {
                         short[] s = shortPointers[ishort];
                         ishort += 1;
-                        // CA2022: Underlying ArrayDataIO.Read uses exact read logic (see BufferedDataStream.ReadBytesExactly)
                         is_Renamed.Read(s, arrOffset, size);
                     }
                     else if (typeof(byte).Equals(t))
                     {
                         byte[] b = bytePointers[ibyte];
                         ibyte += 1;
-                        // CA2022: Underlying ArrayDataIO.Read uses exact read logic (see BufferedDataStream.ReadBytesExactly)
                         is_Renamed.Read(b, arrOffset, size);
                     }
                     else if (typeof(float).Equals(t))
                     {
                         float[] f = floatPointers[ifloat];
                         ifloat += 1;
-                        // CA2022: Underlying ArrayDataIO.Read uses exact read logic (see BufferedDataStream.ReadBytesExactly)
                         is_Renamed.Read(f, arrOffset, size);
                     }
                     else if (typeof(double).Equals(t))
@@ -823,6 +821,7 @@ namespace nom.tam.util
                         is_Renamed.Read(bool_Renamed, arrOffset, size);
                     }
                 }
+#pragma warning restore CA2022
             }
 
             // All done if we get here...

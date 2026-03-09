@@ -36,7 +36,6 @@ namespace nom.tam.image
                 {
                     throw new IOException("Attempt to read from null file");
                 }
-                //long currentOffset = f.FilePointer;
                 long currentOffset = f.Position;
                 Object o = ArrayFuncs.NewInstance(base_Renamed, dims);
                 f.Seek(fileOffset, SeekOrigin.Begin);
@@ -279,7 +278,7 @@ namespace nom.tam.image
         {
             f.Seek(fileOffset + delta, SeekOrigin.Begin);
 
-            // CA2022: Underlying ArrayDataIO.Read uses exact read logic (see BufferedDataStream.ReadBytesExactly)
+#pragma warning disable CA2022 // ArrayDataIO.Read implementations use exact read semantics
             if (base_Renamed == typeof(float))
             {
                 f.Read((float[])output, outputOffset, segment);
@@ -312,6 +311,7 @@ namespace nom.tam.image
             {
                 throw new IOException("Invalid type for tile array");
             }
+#pragma warning restore CA2022
         }
 
         /// <summary>Increment the offset within the position array.

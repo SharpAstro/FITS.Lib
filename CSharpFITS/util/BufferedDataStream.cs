@@ -16,6 +16,7 @@ namespace nom.tam.util
     using System.IO;
 #if !NETSTANDARD2_0
     using System.Buffers.Binary;
+    using System.Runtime.InteropServices;
 #endif
 
     /// <summary>
@@ -296,9 +297,14 @@ namespace nom.tam.util
 
             try
             {
+#if NETSTANDARD2_0
                 byte[] tbuf = ReadBytesExactly(size);
                 Buffer.BlockCopy(tbuf, 0, buf, offset, tbuf.Length);
                 result = tbuf.Length;
+#else
+                _s.ReadExactly(buf.AsSpan(offset, size));
+                result = size;
+#endif
             }
             catch (Exception)
             {
@@ -378,17 +384,18 @@ namespace nom.tam.util
 
             try
             {
-                byte[] tbuf = ReadBytesExactly(shortByteStride * size);
 #if NETSTANDARD2_0
+                byte[] tbuf = ReadBytesExactly(shortByteStride * size);
                 for (int b = 0; b < tbuf.Length; ++nRead, b += shortByteStride)
                 {
                     buf[nRead + offset] = (short)((tbuf[b] << 8) | tbuf[b + 1]);
                 }
 #else
-                for (int b = 0; b < tbuf.Length; ++nRead, b += shortByteStride)
-                {
-                    buf[nRead + offset] = BinaryPrimitives.ReadInt16BigEndian(tbuf.AsSpan(b));
-                }
+                Span<byte> target = MemoryMarshal.AsBytes(buf.AsSpan(offset, size));
+                _s.ReadExactly(target);
+                Span<short> asShorts = MemoryMarshal.Cast<byte, short>(target);
+                BinaryPrimitives.ReverseEndianness(asShorts, asShorts);
+                nRead = size;
 #endif
             }
             catch (Exception)
@@ -405,17 +412,18 @@ namespace nom.tam.util
 
             try
             {
-                byte[] tbuf = ReadBytesExactly(intByteStride * size);
 #if NETSTANDARD2_0
+                byte[] tbuf = ReadBytesExactly(intByteStride * size);
                 for (int b = 0; b < tbuf.Length; ++nRead, b += intByteStride)
                 {
                     buf[nRead + offset] = (tbuf[b] << 24) | (tbuf[b + 1] << 16) | (tbuf[b + 2] << 8) | tbuf[b + 3];
                 }
 #else
-                for (int b = 0; b < tbuf.Length; ++nRead, b += intByteStride)
-                {
-                    buf[nRead + offset] = BinaryPrimitives.ReadInt32BigEndian(tbuf.AsSpan(b));
-                }
+                Span<byte> target = MemoryMarshal.AsBytes(buf.AsSpan(offset, size));
+                _s.ReadExactly(target);
+                Span<int> asInts = MemoryMarshal.Cast<byte, int>(target);
+                BinaryPrimitives.ReverseEndianness(asInts, asInts);
+                nRead = size;
 #endif
             }
             catch (Exception)
@@ -432,18 +440,19 @@ namespace nom.tam.util
 
             try
             {
-                byte[] tbuf = ReadBytesExactly(longByteStride * size);
 #if NETSTANDARD2_0
+                byte[] tbuf = ReadBytesExactly(longByteStride * size);
                 for (int b = 0; b < tbuf.Length; ++nRead, b += longByteStride)
                 {
                     buf[nRead + offset] = ((long)tbuf[b] << 56) | ((long)tbuf[b + 1] << 48) | ((long)tbuf[b + 2] << 40) | ((long)tbuf[b + 3] << 32)
                                         | ((long)tbuf[b + 4] << 24) | ((long)tbuf[b + 5] << 16) | ((long)tbuf[b + 6] << 8) | tbuf[b + 7];
                 }
 #else
-                for (int b = 0; b < tbuf.Length; ++nRead, b += longByteStride)
-                {
-                    buf[nRead + offset] = BinaryPrimitives.ReadInt64BigEndian(tbuf.AsSpan(b));
-                }
+                Span<byte> target = MemoryMarshal.AsBytes(buf.AsSpan(offset, size));
+                _s.ReadExactly(target);
+                Span<long> asLongs = MemoryMarshal.Cast<byte, long>(target);
+                BinaryPrimitives.ReverseEndianness(asLongs, asLongs);
+                nRead = size;
 #endif
             }
             catch (Exception)
@@ -460,18 +469,20 @@ namespace nom.tam.util
 
             try
             {
-                byte[] tbuf = ReadBytesExactly(floatByteStride * size);
 #if NETSTANDARD2_0
+                byte[] tbuf = ReadBytesExactly(floatByteStride * size);
                 for (int b = 0; b < tbuf.Length; ++nRead, b += floatByteStride)
                 {
                     int intVal = (tbuf[b] << 24) | (tbuf[b + 1] << 16) | (tbuf[b + 2] << 8) | tbuf[b + 3];
                     unsafe { buf[nRead + offset] = *(float*)&intVal; }
                 }
 #else
-                for (int b = 0; b < tbuf.Length; ++nRead, b += floatByteStride)
-                {
-                    buf[nRead + offset] = BinaryPrimitives.ReadSingleBigEndian(tbuf.AsSpan(b));
-                }
+                // Read directly into float array memory, then reverse endianness in-place (SIMD-vectorized)
+                Span<byte> target = MemoryMarshal.AsBytes(buf.AsSpan(offset, size));
+                _s.ReadExactly(target);
+                Span<int> asInts = MemoryMarshal.Cast<byte, int>(target);
+                BinaryPrimitives.ReverseEndianness(asInts, asInts);
+                nRead = size;
 #endif
             }
             catch (Exception)
@@ -488,8 +499,8 @@ namespace nom.tam.util
 
             try
             {
-                byte[] tbuf = ReadBytesExactly(doubleByteStride * size);
 #if NETSTANDARD2_0
+                byte[] tbuf = ReadBytesExactly(doubleByteStride * size);
                 for (int b = 0; b < tbuf.Length; ++nRead, b += doubleByteStride)
                 {
                     long longVal = ((long)tbuf[b] << 56) | ((long)tbuf[b + 1] << 48) | ((long)tbuf[b + 2] << 40) | ((long)tbuf[b + 3] << 32)
@@ -497,10 +508,11 @@ namespace nom.tam.util
                     buf[nRead + offset] = BitConverter.Int64BitsToDouble(longVal);
                 }
 #else
-                for (int b = 0; b < tbuf.Length; ++nRead, b += doubleByteStride)
-                {
-                    buf[nRead + offset] = BinaryPrimitives.ReadDoubleBigEndian(tbuf.AsSpan(b));
-                }
+                Span<byte> target = MemoryMarshal.AsBytes(buf.AsSpan(offset, size));
+                _s.ReadExactly(target);
+                Span<long> asLongs = MemoryMarshal.Cast<byte, long>(target);
+                BinaryPrimitives.ReverseEndianness(asLongs, asLongs);
+                nRead = size;
 #endif
             }
             catch (Exception)

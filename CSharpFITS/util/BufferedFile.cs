@@ -18,25 +18,27 @@ namespace nom.tam.util
     public class BufferedFile : BufferedDataStream
     {
         #region Constructors
+        private const int DefaultBufferSize = 131072; // 128 KB
+
         /// <summary>Create a read-only buffered file</summary>
-        public BufferedFile(String filename) : this(filename, FileAccess.Read, FileShare.Read, 32768)
+        public BufferedFile(String filename) : this(filename, FileAccess.Read, FileShare.Read, DefaultBufferSize)
         {
         }
 
         /// <summary>Create a buffered file with the given mode.</summary>
         /// <param name="filename">The file to be accessed.</param>
         /// <param name="access">Read/write</param>
-        public BufferedFile(String filename, FileAccess access, FileShare share) : this(filename, access, share, 32768)
+        public BufferedFile(String filename, FileAccess access, FileShare share) : this(filename, access, share, DefaultBufferSize)
         {
         }
 
         /// <summary> Create a buffered file from a File descriptor.</summary>
-        public BufferedFile(FileInfo file) : this(file, FileAccess.Read, FileShare.Read, 2768)
+        public BufferedFile(FileInfo file) : this(file, FileAccess.Read, FileShare.Read, DefaultBufferSize)
         {
         }
 
         /// <summary> Create a buffered file from a File descriptor.</summary>
-        public BufferedFile(FileInfo file, FileAccess mode, FileShare share) : this(file, mode, FileShare.ReadWrite, 32768)
+        public BufferedFile(FileInfo file, FileAccess mode, FileShare share) : this(file, mode, FileShare.ReadWrite, DefaultBufferSize)
         {
         }
         /// <summary>
@@ -61,9 +63,7 @@ namespace nom.tam.util
         /// defaults to 32768 bytes in the other
         /// constructors.</param>
         public BufferedFile(FileInfo filename, FileAccess access, FileShare share, int bufferSize)
-          //  : base(new FileStream(filename.FullName, FileMode.OpenOrCreate, access, FileShare.Read, bufferSize))
-          : base(new FileStream(filename.FullName, FileMode.OpenOrCreate, access, share, bufferSize))
-
+          : base(new FileStream(filename.FullName, FileMode.OpenOrCreate, access, share, bufferSize), bufferSize)
         {
         }
         #endregion
