@@ -65,6 +65,49 @@ namespace nom.tam.fits
 		/// </summary>
 		public virtual ImageTiler Tiler => tiler;
 
+		/// <summary>The number of channels (planes) in the image.
+		/// For 2D images this is 1. For 3D images this is the size of the first axis (NAXIS3).</summary>
+		public int ChannelCount
+		{
+			get
+			{
+				var data = DataArray;
+				if (data == null) return 0;
+				int[] dims = ArrayFuncs.GetDimensions(data);
+				return dims.Length <= 2 ? 1 : dims[0];
+			}
+		}
+
+		/// <summary>Get a single channel (plane) of image data as a rectangular array.
+		/// For 2D images, index must be 0 and returns the full image.
+		/// For 3D images, returns the Nth channel as a rectangular 2D array.
+		/// </summary>
+		/// <param name="index">The zero-based channel index.</param>
+		/// <returns>A rectangular array (e.g. float[,]) for the requested channel.</returns>
+		/// <exception cref="IndexOutOfRangeException">If the index is out of range.</exception>
+		/// <exception cref="InvalidOperationException">If image data is not available.</exception>
+		public Array GetChannel(int index)
+		{
+			var data = DataArray;
+			if (data == null)
+				throw new InvalidOperationException("Image data is not available.");
+
+			if (data is Array outerArray && ArrayFuncs.IsArrayOfArrays(data))
+			{
+				// 3D+ hybrid: jagged outer array of rectangular inner arrays
+				if (index < 0 || index >= outerArray.Length)
+					throw new IndexOutOfRangeException(
+						$"Channel index {index} is out of range [0, {outerArray.Length}).");
+				return (Array)outerArray.GetValue(index);
+			}
+
+			// 2D rectangular or 1D array
+			if (index != 0)
+				throw new IndexOutOfRangeException(
+					$"Channel index {index} is out of range for a {ArrayFuncs.CountDimensions(data)}D image.");
+			return (Array)data;
+		}
+
 		/// <summary>The size of the data 
 		/// </summary>
 		internal long byteSize;

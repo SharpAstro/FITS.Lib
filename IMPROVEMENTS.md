@@ -2,6 +2,29 @@
 
 Changes since forking from [rwg0/csharpfits](https://github.com/rwg0/csharpfits).
 
+## v4.2.0
+
+### Hybrid arrays for 3D+ images and channel access API
+
+For images with 3 or more dimensions (e.g. multi-channel), `DataArray` now returns a
+hybrid structure: a jagged outer `Array[]` of rectangular inner arrays. For example,
+a 3-channel 4176x6248 float image returns `Array[3]` of `float[4176, 6248]` instead of
+a single `float[3, 4176, 6248]`. This reduces the maximum single allocation from 299MB
+to ~100MB, which is much friendlier to the GC and Large Object Heap.
+
+1D and 2D images are unchanged (return `float[]` or `float[,]` respectively).
+
+New API for convenient channel access:
+
+```csharp
+ImageHDU hdu = ...;
+int n = hdu.ChannelCount;          // 1 for 2D, N for 3D+
+float[,] red = (float[,])hdu.GetChannel(0);   // first channel
+float[,] green = (float[,])hdu.GetChannel(1); // second channel
+```
+
+Also available on `ImageData` directly: `ChannelCount` and `GetChannel(int index)`.
+
 ## v4.1.0
 
 ### SIMD write path and buffered stream bypass

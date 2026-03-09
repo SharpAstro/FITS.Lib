@@ -50,6 +50,17 @@ namespace nom.tam.fits
         /// </summary>
 		public virtual ImageTiler Tiler => ((ImageData)myData).Tiler;
 
+        /// <summary>The number of channels (planes) in the image.
+        /// For 2D images this is 1. For 3D images this is the size of the first axis.</summary>
+        public int ChannelCount => ((ImageData)myData).ChannelCount;
+
+        /// <summary>Get a single channel (plane) of image data as a rectangular array.
+        /// For 2D images, index must be 0 and returns the full image.
+        /// For 3D images, returns the Nth channel as a rectangular 2D array (e.g. float[,]).
+        /// </summary>
+        /// <param name="index">The zero-based channel index.</param>
+        public Array GetChannel(int index) => ((ImageData)myData).GetChannel(index);
+
         /// <summary>Build an image HDU using the supplied data.</summary>
         /// <param name="obj">the data used to build the image.</param>
         /// <exception cref="FitsException">If there was a problem with the data.</exception>
