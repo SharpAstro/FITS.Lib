@@ -340,27 +340,32 @@ namespace nom.tam.util
                     {
                         if (temp is Array)
                         {
-                            // if the array is 1D with no elements defined in it.
                             var array = (Array)temp;
                             if (array.Length == 0)
                             {
                                 done = true;
                             }
-                            // else check for the element type whether it is an Array or not.
-                            else if (array.GetValue(0) is Array)
+                            else if (array.GetValue(0) is Array innerArray)
                             {
-                                temp = array.GetValue(0);
-                                ndim++;
-                                continue;
+                                // Inner element is a rectangular array (hybrid structure):
+                                // add its rank and stop descending
+                                if (innerArray.Rank > 1)
+                                {
+                                    ndim += innerArray.Rank;
+                                    done = true;
+                                }
+                                else
+                                {
+                                    temp = innerArray;
+                                    ndim++;
+                                    continue;
+                                }
                             }
-
-                            // if there is only one element at a particular dimension with data of type primitive.
-                            if (array.Length == 1)
+                            else if (array.Length == 1)
                             {
                                 done = true;
                             }
-
-                            if (array.GetType().HasElementType && array.GetType().GetElementType().IsPrimitive)
+                            else if (array.GetType().HasElementType && array.GetType().GetElementType().IsPrimitive)
                             {
                                 done = true;
                             }
@@ -390,33 +395,43 @@ namespace nom.tam.util
                     int[] dimens = new int[ndim];
                     for (int i = 0; i < ndim; i += 1)
                     {
-                        dimens[i] = -1; // So that we can distinguish a null from a 0 length.
+                        dimens[i] = -1;
                     }
 
                     for (int i = 0; i < ndim; i += 1)
                     {
-                        dimens[i] = ((Array)o).Length;
+                        Array current = (Array)o;
+
+                        // If we've reached a rectangular inner array, extract its dimensions
+                        if (current.Rank > 1)
+                        {
+                            for (int d = 0; d < current.Rank && i + d < ndim; d++)
+                            {
+                                dimens[i + d] = current.GetLength(d);
+                            }
+                            break;
+                        }
+
+                        dimens[i] = current.Length;
                         if (dimens[i] == 0)
                         {
                             return dimens;
                         }
                         if (i != ndim - 1)
                         {
-                            var x = ((Array)o).GetValue(0);
+                            var x = current.GetValue(0);
 
-                            // If first element of array is null, then check for other elements.
                             if (x == null)
                             {
                                 int j = 1;
                                 for (; j < dimens[i]; j++)
                                 {
-                                    if (((Array)o).GetValue(j) == null)
+                                    if (current.GetValue(j) == null)
                                         continue;
                                     else
-                                        o = ((Array)o).GetValue(j);
+                                        o = current.GetValue(j);
                                 }
 
-                                // if all elements are null
                                 if (j == dimens[i] - 1)
                                     return dimens;
                             }
@@ -795,9 +810,12 @@ namespace nom.tam.util
             }
         }
 
-        /// <summary>Create a rectangular (multi-dimensional) array with a single allocation.
-        /// For 1D arrays, returns a simple typed array. For 2D+, returns e.g. float[,] or float[,,].
-        /// This is more efficient than jagged arrays for image data.</summary>
+        /// <summary>Create a rectangular array for image data.
+        /// For 1D: returns a typed array (e.g. float[]).
+        /// For 2D: returns a rectangular array (e.g. float[,]).
+        /// For 3D+: returns a jagged outer array of rectangular inner arrays
+        /// (e.g. Array[3] of float[4176, 6248]) to avoid a single huge LOH allocation.
+        /// </summary>
         /// <param name="cl">The element type.</param>
         /// <param name="dims">The dimensions.</param>
         public static Array NewRectangularInstance(Type cl, int[] dims)
@@ -812,7 +830,22 @@ namespace nom.tam.util
                 return NewInstance(cl, dims[0]);
             }
 
-            return Array.CreateInstance(cl, dims);
+            if (dims.Length == 2)
+            {
+                return Array.CreateInstance(cl, dims);
+            }
+
+            // 3D+: jagged outermost dimension, rectangular inner dimensions
+            // e.g. dims [3, 4176, 6248] → Array[3] of float[4176, 6248]
+            int[] innerDims = new int[dims.Length - 1];
+            Array.Copy(dims, 1, innerDims, 0, innerDims.Length);
+
+            Array outer = new Array[dims[0]];
+            for (int i = 0; i < dims[0]; i++)
+            {
+                outer.SetValue(Array.CreateInstance(cl, innerDims), i);
+            }
+            return outer;
         }
 
 
