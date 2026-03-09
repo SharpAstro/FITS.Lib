@@ -2,6 +2,25 @@
 
 Changes since forking from [rwg0/csharpfits](https://github.com/rwg0/csharpfits).
 
+## v4.1.0
+
+### SIMD write path and buffered stream bypass
+
+- **Write methods** (short/int/long/float/double) now use SIMD-vectorized
+  `BinaryPrimitives.ReverseEndianness` on .NET 10+ instead of scalar byte shuffling.
+  This benefits all write paths including BinaryTable data.
+- **WriteRectangularArray** uses chunked zero-copy writes from the array's contiguous
+  memory (~4MB chunks), eliminating the full-size flat temp buffer allocation.
+- **ReadRectangularArray** bypasses `BufferedStream` for large reads (>128KB), reading
+  directly from the underlying `FileStream`.
+
+**Performance** (299MB float 6248x4176x3 image, .NET 10):
+
+| Operation | v4.0.0 | v4.1.0 |
+|-----------|--------|--------|
+| Read | ~197ms | **~142ms** (-28%) |
+| Write | ~3,219ms | **~113ms** (-96%) |
+
 ## v4.0.0 (breaking)
 
 ### Rectangular arrays for image data
