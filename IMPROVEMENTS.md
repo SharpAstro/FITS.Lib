@@ -16,13 +16,22 @@ to use rectangular types like `float[,]` or work with `Array` generically.
 
 | Metric | v3.2.0 (jagged) | v4.0.0 (rectangular) |
 |--------|-----------------|----------------------|
-| Load time | ~285ms | ~197ms (**-31%**) |
+| Read time | ~285ms | **~142ms** (-50%) |
+| Write time | ~3,219ms | **~113ms** (-96%) |
 | Heap allocations | ~12,500+ | 1 |
 | Read calls | ~12,500 | 1 |
 
-On .NET 10+, the read path uses `MemoryMarshal.GetArrayDataReference` to get a span
-over the rectangular array's contiguous memory, then reads and endian-swaps directly
-in place (zero-copy). On netstandard2.0, a temporary flat buffer is used with `Buffer.BlockCopy`.
+On .NET 10+:
+- **Read path**: `MemoryMarshal.GetArrayDataReference` gets a span over the rectangular
+  array's contiguous memory. For large images, reads bypass `BufferedStream` and go
+  directly to the underlying `FileStream`. SIMD endian swap in place (zero-copy).
+- **Write path**: chunked zero-copy writes from rectangular array memory with SIMD
+  endian swap via `BinaryPrimitives.ReverseEndianness` (~4MB chunks to `_outBuf`).
+  No full-size temp allocation.
+- **1D write methods** (short/int/long/float/double) also upgraded to SIMD endian
+  swap, benefiting all write paths including BinaryTable.
+
+On netstandard2.0, temporary flat buffers with `Buffer.BlockCopy` are used as fallback.
 
 Non-image data (BinaryTable, AsciiTable, RandomGroups) is unchanged and still uses
 jagged arrays.

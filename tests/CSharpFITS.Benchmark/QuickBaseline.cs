@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Runtime.InteropServices;
 using nom.tam.fits;
+using nom.tam.util;
 
 namespace CSharpFITS.Benchmark;
 
@@ -18,15 +19,18 @@ public static class QuickBaseline
             dir = Path.GetDirectoryName(dir);
 
         var fitsFilePath = Path.Combine(dir!, "tests", "CSharpFITS.Test", "testdocs", "LDN1089_singleFrame.fits");
+        var fitsWritePath = Path.Combine(Path.GetTempPath(), "fits_write_bench.fits");
 
         Console.WriteLine($"File: {fitsFilePath}");
         Console.WriteLine($"Size: {new FileInfo(fitsFilePath).Length / (1024.0 * 1024.0):F1} MB");
         Console.WriteLine();
 
-        // Warmup
+        // Warmup read
+        object? warmupData;
         {
             var fits = new Fits(fitsFilePath);
             var hdus = fits.Read();
+            warmupData = ((ImageHDU)hdus[0]).Data.DataArray;
             fits.Close();
         }
 
@@ -43,26 +47,25 @@ public static class QuickBaseline
         Console.WriteLine($"Header-only (deferred): {sw.ElapsedMilliseconds / headerRuns:F1} ms avg ({headerRuns} runs)");
 
         // Benchmark: full data load
-        const int dataRuns = 3;
+        const int dataRuns = 5;
         string? hash = null;
+        object? lastData = null;
         sw.Restart();
         for (int i = 0; i < dataRuns; i++)
         {
             var fits = new Fits(fitsFilePath);
             var hdus = fits.Read();
-            object? data = null;
             foreach (var hdu in hdus)
             {
                 if (hdu is ImageHDU imageHdu)
                 {
-                    data = imageHdu.Data.DataArray;
+                    lastData = imageHdu.Data.DataArray;
                 }
             }
 
-            // Hash on last run to verify correctness
-            if (i == dataRuns - 1 && data != null)
+            if (i == dataRuns - 1 && lastData != null)
             {
-                hash = ComputeImageHash(data);
+                hash = ComputeImageHash(lastData);
             }
 
             fits.Close();
@@ -70,6 +73,45 @@ public static class QuickBaseline
         sw.Stop();
         Console.WriteLine($"Full data load:        {sw.ElapsedMilliseconds / dataRuns:F1} ms avg ({dataRuns} runs)");
         Console.WriteLine($"Image data SHA256:     {hash}");
+        Console.WriteLine();
+
+        // Benchmark: write (round-trip the loaded data)
+        // Build a Fits object with the image data from the last read
+        const int writeRuns = 3;
+
+        // Warmup write
+        {
+            var f = new Fits();
+            f.AddHDU(Fits.MakeHDU(lastData));
+            var bf = new BufferedFile(fitsWritePath, FileAccess.ReadWrite, FileShare.ReadWrite);
+            f.Write(bf);
+            bf.Close();
+        }
+
+        sw.Restart();
+        for (int i = 0; i < writeRuns; i++)
+        {
+            var f = new Fits();
+            f.AddHDU(Fits.MakeHDU(lastData));
+            var bf = new BufferedFile(fitsWritePath, FileAccess.ReadWrite, FileShare.ReadWrite);
+            f.Write(bf);
+            bf.Close();
+        }
+        sw.Stop();
+        Console.WriteLine($"Full data write:       {sw.ElapsedMilliseconds / writeRuns:F1} ms avg ({writeRuns} runs)");
+
+        // Verify round-trip: read back and hash
+        {
+            var fits = new Fits(fitsWritePath);
+            var hdus = fits.Read();
+            var rtData = ((ImageHDU)hdus[0]).Data.DataArray;
+            var rtHash = ComputeImageHash(rtData);
+            fits.Close();
+            Console.WriteLine($"Round-trip SHA256:     {rtHash}");
+            Console.WriteLine($"Round-trip matches:    {rtHash == hash}");
+        }
+
+        try { File.Delete(fitsWritePath); } catch { }
     }
 
     public static string ComputeImageHash(object data)
@@ -108,7 +150,6 @@ public static class QuickBaseline
         }
         else if (o is Array arr && arr.Rank > 1 && arr.GetType().GetElementType()!.IsPrimitive)
         {
-            // Rectangular multi-dimensional array: hash via BlockCopy to flat buffer
             int elementSize = Marshal.SizeOf(arr.GetType().GetElementType()!);
             var flat = new byte[arr.Length * elementSize];
             Buffer.BlockCopy(arr, 0, flat, 0, flat.Length);

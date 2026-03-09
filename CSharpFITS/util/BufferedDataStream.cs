@@ -41,6 +41,7 @@ namespace nom.tam.util
         /// <param name="bufLength"></param>
         public BufferedDataStream(Stream s, int bufLength)
         {
+            _rawStream = s;
             _s = bufLength < 0 ? new BufferedStream(s) : new BufferedStream(s, bufLength);
             _in = new BinaryReader(_s);
             if (_s.CanWrite)
@@ -258,65 +259,54 @@ namespace nom.tam.util
 
 #if !NETSTANDARD2_0
             // Zero-copy path: get a Span over the rectangular array's contiguous memory
-            // and read + endian-swap directly in place
+            // and read + endian-swap directly in place.
+            // Use the raw (unbuffered) stream for large reads to avoid BufferedStream overhead.
             try
             {
-                if (typeof(float).Equals(elementType))
+                int elementSize = elementType == typeof(byte) ? 1 :
+                    (elementType == typeof(short) ? 2 :
+                    (elementType == typeof(long) || elementType == typeof(double) ? 8 : 4));
+                int totalBytes = totalLength * elementSize;
+
+                Span<byte> bytes = MemoryMarshal.CreateSpan(
+                    ref MemoryMarshal.GetArrayDataReference(array), totalBytes);
+
+                // For large reads, bypass BufferedStream and read directly from the underlying stream
+                if (_rawStream.CanSeek && totalBytes > 131072)
                 {
-                    Span<byte> bytes = MemoryMarshal.CreateSpan(
-                        ref MemoryMarshal.GetArrayDataReference(array), totalLength * sizeof(float));
-                    _s.ReadExactly(bytes);
-                    Span<int> asInts = MemoryMarshal.Cast<byte, int>(bytes);
-                    BinaryPrimitives.ReverseEndianness(asInts, asInts);
-                    primitiveArrayCount += totalLength * sizeof(float);
-                }
-                else if (typeof(double).Equals(elementType))
-                {
-                    Span<byte> bytes = MemoryMarshal.CreateSpan(
-                        ref MemoryMarshal.GetArrayDataReference(array), totalLength * sizeof(double));
-                    _s.ReadExactly(bytes);
-                    Span<long> asLongs = MemoryMarshal.Cast<byte, long>(bytes);
-                    BinaryPrimitives.ReverseEndianness(asLongs, asLongs);
-                    primitiveArrayCount += totalLength * sizeof(double);
-                }
-                else if (typeof(int).Equals(elementType))
-                {
-                    Span<byte> bytes = MemoryMarshal.CreateSpan(
-                        ref MemoryMarshal.GetArrayDataReference(array), totalLength * sizeof(int));
-                    _s.ReadExactly(bytes);
-                    Span<int> asInts = MemoryMarshal.Cast<byte, int>(bytes);
-                    BinaryPrimitives.ReverseEndianness(asInts, asInts);
-                    primitiveArrayCount += totalLength * sizeof(int);
-                }
-                else if (typeof(short).Equals(elementType))
-                {
-                    Span<byte> bytes = MemoryMarshal.CreateSpan(
-                        ref MemoryMarshal.GetArrayDataReference(array), totalLength * sizeof(short));
-                    _s.ReadExactly(bytes);
-                    Span<short> asShorts = MemoryMarshal.Cast<byte, short>(bytes);
-                    BinaryPrimitives.ReverseEndianness(asShorts, asShorts);
-                    primitiveArrayCount += totalLength * sizeof(short);
-                }
-                else if (typeof(long).Equals(elementType))
-                {
-                    Span<byte> bytes = MemoryMarshal.CreateSpan(
-                        ref MemoryMarshal.GetArrayDataReference(array), totalLength * sizeof(long));
-                    _s.ReadExactly(bytes);
-                    Span<long> asLongs = MemoryMarshal.Cast<byte, long>(bytes);
-                    BinaryPrimitives.ReverseEndianness(asLongs, asLongs);
-                    primitiveArrayCount += totalLength * sizeof(long);
-                }
-                else if (typeof(byte).Equals(elementType))
-                {
-                    Span<byte> bytes = MemoryMarshal.CreateSpan(
-                        ref MemoryMarshal.GetArrayDataReference(array), totalLength);
-                    _s.ReadExactly(bytes);
-                    primitiveArrayCount += totalLength;
+                    // Sync raw stream position with BufferedStream position, then read directly
+                    _rawStream.Seek(_s.Position, SeekOrigin.Begin);
+                    _rawStream.ReadExactly(bytes);
+                    // Resync BufferedStream to the new position
+                    _s.Seek(_rawStream.Position, SeekOrigin.Begin);
                 }
                 else
                 {
-                    throw new IOException($"Rectangular array read not supported for element type: {elementType.FullName}");
+                    _s.ReadExactly(bytes);
                 }
+
+                // SIMD endian swap in place
+                if (typeof(float).Equals(elementType) || typeof(int).Equals(elementType))
+                {
+                    BinaryPrimitives.ReverseEndianness(
+                        MemoryMarshal.Cast<byte, int>(bytes),
+                        MemoryMarshal.Cast<byte, int>(bytes));
+                }
+                else if (typeof(double).Equals(elementType) || typeof(long).Equals(elementType))
+                {
+                    BinaryPrimitives.ReverseEndianness(
+                        MemoryMarshal.Cast<byte, long>(bytes),
+                        MemoryMarshal.Cast<byte, long>(bytes));
+                }
+                else if (typeof(short).Equals(elementType))
+                {
+                    BinaryPrimitives.ReverseEndianness(
+                        MemoryMarshal.Cast<byte, short>(bytes),
+                        MemoryMarshal.Cast<byte, short>(bytes));
+                }
+                // byte: no endian swap needed
+
+                primitiveArrayCount += totalBytes;
             }
             catch (IOException) { throw; }
             catch (Exception) { /* swallow like the 1D Read methods do */ }
@@ -843,14 +833,43 @@ namespace nom.tam.util
         }
 
         /// <summary>
-        /// Writes a rectangular (multi-dimensional) array by iterating through all elements in row-major order.
+        /// Writes a rectangular (multi-dimensional) array.
+        /// On .NET 10+: endian-swaps and writes directly from the array's contiguous memory in chunks (zero-copy).
+        /// On netstandard2.0: flattens via BlockCopy then writes.
         /// </summary>
-        /// <param name="array">The rectangular array to write.</param>
         private void WriteRectangularArray(Array array)
         {
             Type elementType = array.GetType().GetElementType();
             int totalLength = array.Length;
 
+#if !NETSTANDARD2_0
+            // Zero-copy chunked write: read from rectangular array memory, endian-swap into _outBuf, write
+            const int chunkElements = 1024 * 1024; // process ~4MB at a time (for 4-byte elements)
+
+            if (typeof(byte).Equals(elementType))
+            {
+                // No endian swap needed for bytes
+                Span<byte> src = MemoryMarshal.CreateSpan(
+                    ref MemoryMarshal.GetArrayDataReference(array), totalLength);
+                _s.Write(src);
+            }
+            else if (typeof(float).Equals(elementType) || typeof(int).Equals(elementType))
+            {
+                WriteRectangularChunked(array, totalLength, sizeof(int), chunkElements, 4);
+            }
+            else if (typeof(double).Equals(elementType) || typeof(long).Equals(elementType))
+            {
+                WriteRectangularChunked(array, totalLength, sizeof(long), chunkElements, 8);
+            }
+            else if (typeof(short).Equals(elementType))
+            {
+                WriteRectangularChunked(array, totalLength, sizeof(short), chunkElements, 2);
+            }
+            else
+            {
+                throw new IOException($"Rectangular array write not supported for element type: {elementType.FullName}");
+            }
+#else
             if (typeof(float).Equals(elementType))
             {
                 float[] flat = new float[totalLength];
@@ -897,7 +916,50 @@ namespace nom.tam.util
             {
                 throw new IOException($"Rectangular array write not supported for element type: {elementType.FullName}");
             }
+#endif
         }
+
+#if !NETSTANDARD2_0
+        /// <summary>
+        /// Writes a rectangular array in chunks with SIMD endian swap, avoiding a full-size temp allocation.
+        /// </summary>
+        /// <param name="swapSize">Element size for endian swap: 2 (short), 4 (int/float), or 8 (long/double).</param>
+        private void WriteRectangularChunked(Array array, int totalLength, int elementSize, int chunkElements, int swapSize)
+        {
+            int totalBytes = totalLength * elementSize;
+            Span<byte> src = MemoryMarshal.CreateSpan(
+                ref MemoryMarshal.GetArrayDataReference(array), totalBytes);
+
+            int chunkBytes = chunkElements * elementSize;
+            if (_outBuf.Length < chunkBytes) _outBuf = new byte[chunkBytes];
+
+            for (int byteOffset = 0; byteOffset < totalBytes; byteOffset += chunkBytes)
+            {
+                int remaining = Math.Min(chunkBytes, totalBytes - byteOffset);
+                src.Slice(byteOffset, remaining).CopyTo(_outBuf);
+                Span<byte> chunk = _outBuf.AsSpan(0, remaining);
+                switch (swapSize)
+                {
+                    case 2:
+                        BinaryPrimitives.ReverseEndianness(
+                            MemoryMarshal.Cast<byte, short>(chunk),
+                            MemoryMarshal.Cast<byte, short>(chunk));
+                        break;
+                    case 4:
+                        BinaryPrimitives.ReverseEndianness(
+                            MemoryMarshal.Cast<byte, int>(chunk),
+                            MemoryMarshal.Cast<byte, int>(chunk));
+                        break;
+                    case 8:
+                        BinaryPrimitives.ReverseEndianness(
+                            MemoryMarshal.Cast<byte, long>(chunk),
+                            MemoryMarshal.Cast<byte, long>(chunk));
+                        break;
+                }
+                _out.Write(_outBuf, 0, remaining);
+            }
+        }
+#endif
 
         public override void Write(byte[] buf)
         {
@@ -995,6 +1057,7 @@ namespace nom.tam.util
             _out.Write(_outBuf, 0, charByteStride * size);
         }
 
+#if NETSTANDARD2_0
         public override void Write(short[] buf, int offset, int size)
         {
             if (_outBuf.Length < shortByteStride * size)
@@ -1048,7 +1111,6 @@ namespace nom.tam.util
             _out.Write(_outBuf, 0, longByteStride * size);
         }
 
-#if NETSTANDARD2_0
         public override unsafe void Write(float[] buf, int offset, int size)
         {
             if (_outBuf.Length < floatByteStride * size)
@@ -1066,24 +1128,6 @@ namespace nom.tam.util
             }
             _out.Write(_outBuf, 0, floatByteStride * size);
         }
-#else
-        public override void Write(float[] buf, int offset, int size)
-        {
-            if (_outBuf.Length < floatByteStride * size)
-            {
-                _outBuf = new byte[floatByteStride * size];
-            }
-            for (int nWritten = 0, b = 0; nWritten < size; ++nWritten, b += floatByteStride)
-            {
-                int val = BitConverter.SingleToInt32Bits(buf[nWritten + offset]);
-                _outBuf[b] = (byte)(val >> 24);
-                _outBuf[b + 1] = (byte)(val >> 16);
-                _outBuf[b + 2] = (byte)(val >> 8);
-                _outBuf[b + 3] = (byte)val;
-            }
-            _out.Write(_outBuf, 0, floatByteStride * size);
-        }
-#endif
 
         public override void Write(double[] buf, int offset, int size)
         {
@@ -1105,6 +1149,62 @@ namespace nom.tam.util
             }
             _out.Write(_outBuf, 0, doubleByteStride * size);
         }
+#else
+        public override void Write(short[] buf, int offset, int size)
+        {
+            int byteCount = shortByteStride * size;
+            if (_outBuf.Length < byteCount) _outBuf = new byte[byteCount];
+            MemoryMarshal.AsBytes(buf.AsSpan(offset, size)).CopyTo(_outBuf);
+            BinaryPrimitives.ReverseEndianness(
+                MemoryMarshal.Cast<byte, short>(_outBuf.AsSpan(0, byteCount)),
+                MemoryMarshal.Cast<byte, short>(_outBuf.AsSpan(0, byteCount)));
+            _out.Write(_outBuf, 0, byteCount);
+        }
+
+        public override void Write(int[] buf, int offset, int size)
+        {
+            int byteCount = intByteStride * size;
+            if (_outBuf.Length < byteCount) _outBuf = new byte[byteCount];
+            MemoryMarshal.AsBytes(buf.AsSpan(offset, size)).CopyTo(_outBuf);
+            BinaryPrimitives.ReverseEndianness(
+                MemoryMarshal.Cast<byte, int>(_outBuf.AsSpan(0, byteCount)),
+                MemoryMarshal.Cast<byte, int>(_outBuf.AsSpan(0, byteCount)));
+            _out.Write(_outBuf, 0, byteCount);
+        }
+
+        public override void Write(long[] buf, int offset, int size)
+        {
+            int byteCount = longByteStride * size;
+            if (_outBuf.Length < byteCount) _outBuf = new byte[byteCount];
+            MemoryMarshal.AsBytes(buf.AsSpan(offset, size)).CopyTo(_outBuf);
+            BinaryPrimitives.ReverseEndianness(
+                MemoryMarshal.Cast<byte, long>(_outBuf.AsSpan(0, byteCount)),
+                MemoryMarshal.Cast<byte, long>(_outBuf.AsSpan(0, byteCount)));
+            _out.Write(_outBuf, 0, byteCount);
+        }
+
+        public override void Write(float[] buf, int offset, int size)
+        {
+            int byteCount = floatByteStride * size;
+            if (_outBuf.Length < byteCount) _outBuf = new byte[byteCount];
+            MemoryMarshal.AsBytes(buf.AsSpan(offset, size)).CopyTo(_outBuf);
+            BinaryPrimitives.ReverseEndianness(
+                MemoryMarshal.Cast<byte, int>(_outBuf.AsSpan(0, byteCount)),
+                MemoryMarshal.Cast<byte, int>(_outBuf.AsSpan(0, byteCount)));
+            _out.Write(_outBuf, 0, byteCount);
+        }
+
+        public override void Write(double[] buf, int offset, int size)
+        {
+            int byteCount = doubleByteStride * size;
+            if (_outBuf.Length < byteCount) _outBuf = new byte[byteCount];
+            MemoryMarshal.AsBytes(buf.AsSpan(offset, size)).CopyTo(_outBuf);
+            BinaryPrimitives.ReverseEndianness(
+                MemoryMarshal.Cast<byte, long>(_outBuf.AsSpan(0, byteCount)),
+                MemoryMarshal.Cast<byte, long>(_outBuf.AsSpan(0, byteCount)));
+            _out.Write(_outBuf, 0, byteCount);
+        }
+#endif
 
         public override void Write(String[] buf, int offset, int size)
         {
@@ -1179,6 +1279,7 @@ namespace nom.tam.util
         #endregion
 
         #region Instance Variables
+        protected Stream _rawStream;
         protected Stream _s;
         protected BinaryReader _in;
         protected BinaryWriter _out;
