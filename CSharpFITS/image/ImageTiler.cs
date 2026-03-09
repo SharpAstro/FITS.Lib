@@ -37,7 +37,7 @@ namespace nom.tam.image
                     throw new IOException("Attempt to read from null file");
                 }
                 long currentOffset = f.Position;
-                Object o = ArrayFuncs.NewInstance(base_Renamed, dims);
+                Object o = ArrayFuncs.NewRectangularInstance(base_Renamed, dims);
                 f.Seek(fileOffset, SeekOrigin.Begin);
                 f.ReadArray(o);
                 f.Seek(currentOffset, SeekOrigin.Begin);
@@ -232,19 +232,16 @@ namespace nom.tam.image
         protected internal virtual void FillMemData(Array data, int[] posits, int length,
                                                 Array output, int outputOffset, int dim)
         {
-            // FIX THIS n-D crap
-            //if(data is Object[])
             if (ArrayFuncs.CountDimensions(data) > 1)
             {
                 if (ArrayFuncs.IsArrayOfArrays(data))
                 {
-                    //Object[] xo = (Object[]) data;
-                    //FillMemData((Array)xo[posits[dim]], posits, length, output, outputOffset, dim + 1);
                     FillMemData((Array)data.GetValue(posits[dim]), posits, length, output, outputOffset, dim + 1);
                 }
                 else
                 {
-                    throw new Exception("Called FillMemData with multi-dimensional array.");
+                    // Rectangular multi-dimensional array: compute linear offset and use Buffer.BlockCopy
+                    FillMemDataRectangular(data, posits, length, output, outputOffset);
                 }
             }
             else
@@ -267,6 +264,43 @@ namespace nom.tam.image
 
                 Array.Copy(data, startFrom, output, startTo, copyLength);
             }
+        }
+
+        /// <summary>Fill tile data from a rectangular multi-dimensional array.</summary>
+        private void FillMemDataRectangular(Array data, int[] posits, int length,
+                                            Array output, int outputOffset)
+        {
+            int lastDim = dims.Length - 1;
+            int startFrom = posits[lastDim];
+            int startTo = outputOffset;
+            int copyLength = length;
+
+            if (posits[lastDim] < 0)
+            {
+                startFrom -= posits[lastDim];
+                startTo -= posits[lastDim];
+                copyLength += posits[lastDim];
+            }
+            if (posits[lastDim] + length > dims[lastDim])
+            {
+                copyLength -= (posits[lastDim] + length - dims[lastDim]);
+            }
+
+            if (copyLength <= 0) return;
+
+            // Compute linear offset into the rectangular array
+            int linearOffset = 0;
+            int stride = 1;
+            for (int d = lastDim; d >= 0; d--)
+            {
+                linearOffset += posits[d] < 0 ? 0 : posits[d] * stride;
+                stride *= dims[d];
+            }
+            // Adjust for the startFrom correction
+            linearOffset += (startFrom - (posits[lastDim] < 0 ? 0 : posits[lastDim]));
+
+            int elementSize = System.Runtime.InteropServices.Marshal.SizeOf(base_Renamed);
+            Buffer.BlockCopy(data, linearOffset * elementSize, output, startTo * elementSize, copyLength * elementSize);
         }
 
         /// <summary>File a tile segment from a file.</summary>

@@ -63,7 +63,9 @@ namespace nom.tam.util
         /// defaults to 32768 bytes in the other
         /// constructors.</param>
         public BufferedFile(FileInfo filename, FileAccess access, FileShare share, int bufferSize)
-          : base(new FileStream(filename.FullName, FileMode.OpenOrCreate, access, share, bufferSize), bufferSize)
+          : base(new FileStream(filename.FullName,
+              access == FileAccess.Read ? FileMode.Open : FileMode.OpenOrCreate,
+              access, share, bufferSize), bufferSize)
         {
         }
         #endregion

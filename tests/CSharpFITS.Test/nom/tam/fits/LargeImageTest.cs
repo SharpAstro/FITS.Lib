@@ -56,9 +56,17 @@ namespace nom.tam.fits
                 var bytes = MemoryMarshal.AsBytes(floatArr.AsSpan());
                 sha256.TransformBlock(bytes.ToArray(), 0, bytes.Length, null, 0);
             }
-            else if (o is Array arr)
+            else if (o is Array arr && arr.Rank > 1 && arr.GetType().GetElementType() == typeof(float))
             {
-                foreach (var element in arr)
+                // Rectangular multi-dimensional float array: hash via BlockCopy to flat buffer
+                var flat = new float[arr.Length];
+                Buffer.BlockCopy(arr, 0, flat, 0, arr.Length * sizeof(float));
+                var bytes = MemoryMarshal.AsBytes(flat.AsSpan());
+                sha256.TransformBlock(bytes.ToArray(), 0, bytes.Length, null, 0);
+            }
+            else if (o is Array jarr)
+            {
+                foreach (var element in jarr)
                 {
                     if (element != null)
                         HashArrayRecursive(sha256, element);

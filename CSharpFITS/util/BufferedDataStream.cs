@@ -181,7 +181,6 @@ namespace nom.tam.util
             }
 
             // Is this a multidimensional array?  If so process recursively.
-            //if(o.GetType().GetArrayRank() > 1 || ((Array)o).GetValue(0).GetType().IsArray)
             if (ArrayFuncs.GetDimensions(o).Length > 1)
             {
                 if (ArrayFuncs.IsArrayOfArrays(o))
@@ -194,7 +193,8 @@ namespace nom.tam.util
                 }
                 else
                 {
-                    throw new IOException("Rectangular array read not supported.");
+                    // Rectangular (multi-dimensional) array - read via flat buffer + BlockCopy
+                    ReadRectangularArray((Array)o);
                 }
             }
             else
@@ -244,6 +244,131 @@ namespace nom.tam.util
             }
 
             return primitiveArrayCount;
+        }
+
+        /// <summary>
+        /// Reads a rectangular (multi-dimensional) array.
+        /// On .NET 10+: reads directly into the array's contiguous memory with SIMD endian swap (zero-copy).
+        /// On netstandard2.0: reads into a flat temp buffer then BlockCopies into the array.
+        /// </summary>
+        private void ReadRectangularArray(Array array)
+        {
+            Type elementType = array.GetType().GetElementType();
+            int totalLength = array.Length;
+
+#if !NETSTANDARD2_0
+            // Zero-copy path: get a Span over the rectangular array's contiguous memory
+            // and read + endian-swap directly in place
+            try
+            {
+                if (typeof(float).Equals(elementType))
+                {
+                    Span<byte> bytes = MemoryMarshal.CreateSpan(
+                        ref MemoryMarshal.GetArrayDataReference(array), totalLength * sizeof(float));
+                    _s.ReadExactly(bytes);
+                    Span<int> asInts = MemoryMarshal.Cast<byte, int>(bytes);
+                    BinaryPrimitives.ReverseEndianness(asInts, asInts);
+                    primitiveArrayCount += totalLength * sizeof(float);
+                }
+                else if (typeof(double).Equals(elementType))
+                {
+                    Span<byte> bytes = MemoryMarshal.CreateSpan(
+                        ref MemoryMarshal.GetArrayDataReference(array), totalLength * sizeof(double));
+                    _s.ReadExactly(bytes);
+                    Span<long> asLongs = MemoryMarshal.Cast<byte, long>(bytes);
+                    BinaryPrimitives.ReverseEndianness(asLongs, asLongs);
+                    primitiveArrayCount += totalLength * sizeof(double);
+                }
+                else if (typeof(int).Equals(elementType))
+                {
+                    Span<byte> bytes = MemoryMarshal.CreateSpan(
+                        ref MemoryMarshal.GetArrayDataReference(array), totalLength * sizeof(int));
+                    _s.ReadExactly(bytes);
+                    Span<int> asInts = MemoryMarshal.Cast<byte, int>(bytes);
+                    BinaryPrimitives.ReverseEndianness(asInts, asInts);
+                    primitiveArrayCount += totalLength * sizeof(int);
+                }
+                else if (typeof(short).Equals(elementType))
+                {
+                    Span<byte> bytes = MemoryMarshal.CreateSpan(
+                        ref MemoryMarshal.GetArrayDataReference(array), totalLength * sizeof(short));
+                    _s.ReadExactly(bytes);
+                    Span<short> asShorts = MemoryMarshal.Cast<byte, short>(bytes);
+                    BinaryPrimitives.ReverseEndianness(asShorts, asShorts);
+                    primitiveArrayCount += totalLength * sizeof(short);
+                }
+                else if (typeof(long).Equals(elementType))
+                {
+                    Span<byte> bytes = MemoryMarshal.CreateSpan(
+                        ref MemoryMarshal.GetArrayDataReference(array), totalLength * sizeof(long));
+                    _s.ReadExactly(bytes);
+                    Span<long> asLongs = MemoryMarshal.Cast<byte, long>(bytes);
+                    BinaryPrimitives.ReverseEndianness(asLongs, asLongs);
+                    primitiveArrayCount += totalLength * sizeof(long);
+                }
+                else if (typeof(byte).Equals(elementType))
+                {
+                    Span<byte> bytes = MemoryMarshal.CreateSpan(
+                        ref MemoryMarshal.GetArrayDataReference(array), totalLength);
+                    _s.ReadExactly(bytes);
+                    primitiveArrayCount += totalLength;
+                }
+                else
+                {
+                    throw new IOException($"Rectangular array read not supported for element type: {elementType.FullName}");
+                }
+            }
+            catch (IOException) { throw; }
+            catch (Exception) { /* swallow like the 1D Read methods do */ }
+#else
+            // netstandard2.0 fallback: read into flat buffer, then BlockCopy into rectangular array
+            if (typeof(float).Equals(elementType))
+            {
+                float[] flat = new float[totalLength];
+                primitiveArrayCount += Read(flat, 0, totalLength);
+                Buffer.BlockCopy(flat, 0, array, 0, totalLength * sizeof(float));
+            }
+            else if (typeof(double).Equals(elementType))
+            {
+                double[] flat = new double[totalLength];
+                primitiveArrayCount += Read(flat, 0, totalLength);
+                Buffer.BlockCopy(flat, 0, array, 0, totalLength * sizeof(double));
+            }
+            else if (typeof(int).Equals(elementType))
+            {
+                int[] flat = new int[totalLength];
+                primitiveArrayCount += Read(flat, 0, totalLength);
+                Buffer.BlockCopy(flat, 0, array, 0, totalLength * sizeof(int));
+            }
+            else if (typeof(short).Equals(elementType))
+            {
+                short[] flat = new short[totalLength];
+                primitiveArrayCount += Read(flat, 0, totalLength);
+                Buffer.BlockCopy(flat, 0, array, 0, totalLength * sizeof(short));
+            }
+            else if (typeof(long).Equals(elementType))
+            {
+                long[] flat = new long[totalLength];
+                primitiveArrayCount += Read(flat, 0, totalLength);
+                Buffer.BlockCopy(flat, 0, array, 0, totalLength * sizeof(long));
+            }
+            else if (typeof(byte).Equals(elementType))
+            {
+                byte[] flat = new byte[totalLength];
+                primitiveArrayCount += Read(flat, 0, totalLength);
+                Buffer.BlockCopy(flat, 0, array, 0, totalLength);
+            }
+            else if (typeof(sbyte).Equals(elementType))
+            {
+                sbyte[] flat = new sbyte[totalLength];
+                primitiveArrayCount += Read(flat, 0, totalLength);
+                Buffer.BlockCopy(flat, 0, array, 0, totalLength);
+            }
+            else
+            {
+                throw new IOException($"Rectangular array read not supported for element type: {elementType.FullName}");
+            }
+#endif
         }
 
         public override int Read(byte[] buf)
@@ -1006,7 +1131,7 @@ namespace nom.tam.util
         /// </summary>
         public override void Flush()
         {
-            _out.Flush();
+            _out?.Flush();
         }
 
         public override long Seek(long distance)
@@ -1046,7 +1171,7 @@ namespace nom.tam.util
         public override void Close()
         {
             _in.Close();
-            _out.Close();
+            _out?.Close();
             _s.Close();
             _outBuf = Array.Empty<byte>();
         }

@@ -338,7 +338,7 @@ namespace nom.tam.fits
 			}
 			else
 			{
-				dataArray = ArrayFuncs.NewInstance(dataDescription.type, dataDescription.dims);
+				dataArray = ArrayFuncs.NewRectangularInstance(dataDescription.type, dataDescription.dims);
 				try
 				{
 					i.ReadArray(dataArray);
@@ -395,7 +395,7 @@ namespace nom.tam.fits
 				else if (dataArray == null && dataDescription != null)
 				{
 					// Need to create an array to match a specified header.
-					dataArray = ArrayFuncs.NewInstance(dataDescription.type, dataDescription.dims);
+					dataArray = ArrayFuncs.NewRectangularInstance(dataDescription.type, dataDescription.dims);
 				}
 				else
 				{

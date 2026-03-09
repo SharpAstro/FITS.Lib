@@ -142,13 +142,18 @@ namespace nom.tam.util
                 if (t.IsArray)
                 {
                     int size = 0;
+                    var array = (Array)o;
 
-                    if (t.HasElementType && t.GetElementType().IsPrimitive)
+                    // Rectangular multi-dimensional array: total elements * element size
+                    if (array.Rank > 1 && t.HasElementType && t.GetElementType().IsPrimitive)
                     {
-                        var array = (Array)o;
+                        size = array.Length * (int)sizes[t.GetElementType()];
+                    }
+                    else if (t.HasElementType && t.GetElementType().IsPrimitive)
+                    {
                         if (array.Length > 0)
                         {
-                            IEnumerator i = ((Array)o).GetEnumerator();
+                            IEnumerator i = array.GetEnumerator();
                             i.MoveNext();
 
                             size += array.Length * ComputeSize(i.Current);
@@ -156,13 +161,12 @@ namespace nom.tam.util
                     }
                     else
                     {
-                        for (IEnumerator i = ((Array)o).GetEnumerator(); i.MoveNext();)
+                        for (IEnumerator i = array.GetEnumerator(); i.MoveNext();)
                         {
                             size += ComputeSize(i.Current);
                         }
                     }
 
-                    //return size;
                     result = size;
                 }
                 else if (t == typeof(String))
@@ -444,27 +448,23 @@ namespace nom.tam.util
 
             if (o.GetType().IsArray)
             {
-                // if 'o' is a jagged array of 2 or more than 2 dimensions
-                // with all dimensions of type premitive, 
-                // check for the type of last dimension.
+                // Rectangular multi-dimensional array (e.g., float[,,])
+                if (((Array)o).Rank > 1)
+                {
+                    return o.GetType().GetElementType();
+                }
+                // Jagged array of arrays (e.g., Array[] of Array[] of float[])
                 if (o.GetType().ToString().StartsWith("System.Array"))
                 {
                     return GetBaseClass(((Array)o).GetValue(0));
                 }
-                // if 'o' is a multidimension array of any dimension 
-                // or a jagged array of 2 or more than 2 dimension having
-                // first dimension of non-primitive type,
-                // return the type of 'o' directly without dimension brackets.
-                else
-                {
-                    return Type.GetType(o.ToString().Substring(0, o.ToString().IndexOf("[")));
-                }
+                // 1D or jagged typed array - strip all bracket notation to get base type
+                return Type.GetType(o.ToString().Substring(0, o.ToString().IndexOf("[")));
             }
             else
             {
                 return o.GetType();
             }
-
         }
 
         /// <summary>This routine returns the base class of an object with the dimension indication
@@ -582,11 +582,19 @@ namespace nom.tam.util
         protected internal static int DoFlatten(Object input, Array output, int offset)
         {
             int result = 0;
+            var array = (Array)input;
+
+            // Rectangular multi-dimensional array: use Buffer.BlockCopy for efficiency
+            if (array.Rank > 1 && array.GetType().GetElementType().IsPrimitive)
+            {
+                int elementSize = (int)sizes[array.GetType().GetElementType()];
+                Buffer.BlockCopy(array, 0, output, offset * elementSize, array.Length * elementSize);
+                return array.Length;
+            }
 
             if (IsArrayOfArrays(input))
             {
-                int i = offset;
-                for (IEnumerator e = ((Array)input).GetEnumerator(); e.MoveNext();)
+                for (IEnumerator e = array.GetEnumerator(); e.MoveNext();)
                 {
                     Object a = e.Current;
                     result += DoFlatten(a, output, offset + result);
@@ -594,7 +602,7 @@ namespace nom.tam.util
             }
             else if (input.GetType().IsArray)
             {
-                IEnumerator e = ((Array)input).GetEnumerator();
+                IEnumerator e = array.GetEnumerator();
                 for (int i = offset; e.MoveNext(); ++i)
                 {
                     output.SetValue(e.Current, i);
@@ -643,10 +651,6 @@ namespace nom.tam.util
 
             for (IEnumerator i = input.GetEnumerator(); i.MoveNext() && NextIndex(index, dimens);)
             {
-                //NewInstance call creates a jagged array. So we cannot set the value using Array.SetValue
-                //as it works for multi-dimensional arrays and not for jagged
-                //newArray.SetValue(i.Current, index);
-
                 Array tarr = newArray;
                 for (int i2 = 0; i2 < index.Length - 1; i2++)
                 {
@@ -654,8 +658,6 @@ namespace nom.tam.util
                 }
                 tarr.SetValue(i.Current, index[index.Length - 1]);
             }
-            //int offset = 0;
-            //DoCurl(input, newArray, dimens, offset);
             return newArray;
         }
         /// <summary>
@@ -791,22 +793,26 @@ namespace nom.tam.util
 
                 return a;
             }
-            /*
-            Array o = Array.CreateInstance(cl, dims);
-            if(o == null)
+        }
+
+        /// <summary>Create a rectangular (multi-dimensional) array with a single allocation.
+        /// For 1D arrays, returns a simple typed array. For 2D+, returns e.g. float[,] or float[,,].
+        /// This is more efficient than jagged arrays for image data.</summary>
+        /// <param name="cl">The element type.</param>
+        /// <param name="dims">The dimensions.</param>
+        public static Array NewRectangularInstance(Type cl, int[] dims)
+        {
+            if (dims.Length == 0)
             {
-              System.String desc = cl + "[";
-              System.String comma = "";
-              for(int i = 0; i < dims.Length; i += 1)
-              {
-                desc += comma + dims[i];
-                comma = ",";
-              }
-              desc += "]";
-              throw new System.OutOfMemoryException("Unable to allocate array: " + desc);
+                dims = new int[] { 1 };
             }
-            return o;
-            */
+
+            if (dims.Length == 1)
+            {
+                return NewInstance(cl, dims[0]);
+            }
+
+            return Array.CreateInstance(cl, dims);
         }
 
 
@@ -869,6 +875,27 @@ namespace nom.tam.util
 
             if (xClass != yClass)
             {
+                // Allow comparing jagged vs rectangular arrays with the same base type and dimensions
+                if (x is Array xa && y is Array ya)
+                {
+                    Type xBase = GetBaseClass(x);
+                    Type yBase = GetBaseClass(y);
+                    int[] xDims = GetDimensions(x);
+                    int[] yDims = GetDimensions(y);
+                    if (xBase == yBase && xDims.Length == yDims.Length)
+                    {
+                        bool sameDims = true;
+                        for (int i = 0; i < xDims.Length; i++)
+                            if (xDims[i] != yDims[i]) { sameDims = false; break; }
+                        if (sameDims && xBase.IsPrimitive)
+                        {
+                            // Flatten both and compare bytes
+                            Object fx = Flatten(x);
+                            Object fy = Flatten(y);
+                            return ArrayEquals(fx, fy, tolf, told);
+                        }
+                    }
+                }
                 return false;
             }
 

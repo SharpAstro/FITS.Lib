@@ -106,9 +106,17 @@ public static class QuickBaseline
             var bytes = MemoryMarshal.AsBytes(intArr.AsSpan());
             sha256.TransformBlock(bytes.ToArray(), 0, bytes.Length, null, 0);
         }
-        else if (o is Array arr)
+        else if (o is Array arr && arr.Rank > 1 && arr.GetType().GetElementType()!.IsPrimitive)
         {
-            foreach (var element in arr)
+            // Rectangular multi-dimensional array: hash via BlockCopy to flat buffer
+            int elementSize = Marshal.SizeOf(arr.GetType().GetElementType()!);
+            var flat = new byte[arr.Length * elementSize];
+            Buffer.BlockCopy(arr, 0, flat, 0, flat.Length);
+            sha256.TransformBlock(flat, 0, flat.Length, null, 0);
+        }
+        else if (o is Array jaggedArr)
+        {
+            foreach (var element in jaggedArr)
             {
                 if (element != null)
                     HashArrayRecursive(sha256, element);
