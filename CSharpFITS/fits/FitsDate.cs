@@ -180,7 +180,7 @@ namespace nom.tam.fits
         /// <returns> The Date object.</returns>
         public virtual DateTime ToDate()
         {
-            if (((Object)date) == null && year != -1)
+            if (date == default && year != -1)
             {
                 date = hour == -1 ?
                   new DateTime(year, month, mday, 0, 0, 0, 0) :

@@ -81,7 +81,7 @@ namespace nom.tam.fits
     /// <version>  0.99.4  March 2, 2007
 	/// 
 	/// </version>
-	public class Fits
+	public class Fits : IDisposable
     {
         /// <summary>
         /// default directory path to store files created temporarily during execution of library
@@ -862,8 +862,13 @@ namespace nom.tam.fits
         /// </summary>
         public virtual void Close()
         {
-            dataStr.Close();
+            dataStr?.Close();
             dataStr = null;
+        }
+
+        public void Dispose()
+        {
+            Close();
         }
 
         /// <summary>Get the current number of HDUs in the Fits object.</summary>
