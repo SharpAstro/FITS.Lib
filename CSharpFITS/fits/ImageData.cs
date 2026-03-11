@@ -209,28 +209,28 @@ namespace nom.tam.fits
 
 			if (bitpix == 8)
 			{
-				baseClass = Type.GetType("System.Byte");
+				baseClass = typeof(byte);
 			}
 			else if (bitpix == 16)
 			{
-				baseClass = Type.GetType("System.Int16");
+				baseClass = typeof(short);
 			}
 			else if (bitpix == 32)
 			{
-				baseClass = Type.GetType("System.Int32");
+				baseClass = typeof(int);
 			}
 			else if (bitpix == 64)
 			{
 				/* This isn't a standard for FITS yet...*/
-				baseClass = Type.GetType("System.Int64");
+				baseClass = typeof(long);
 			}
 			else if (bitpix == -32)
 			{
-				baseClass = Type.GetType("System.Single");
+				baseClass = typeof(float);
 			}
 			else if (bitpix == -64)
 			{
-				baseClass = Type.GetType("System.Double");
+				baseClass = typeof(double);
 			}
 			else
 			{

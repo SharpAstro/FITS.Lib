@@ -459,7 +459,7 @@ namespace nom.tam.util
         public static Type GetBaseClass(Object o)
         {
             if (o == null)
-                return Type.GetType("System.Void");
+                return typeof(void);
 
             if (o.GetType().IsArray)
             {
@@ -473,8 +473,11 @@ namespace nom.tam.util
                 {
                     return GetBaseClass(((Array)o).GetValue(0));
                 }
-                // 1D or jagged typed array - strip all bracket notation to get base type
-                return Type.GetType(o.ToString().Substring(0, o.ToString().IndexOf("[")));
+                // 1D or jagged typed array - use GetElementType to get base type
+                Type t = o.GetType();
+                while (t.IsArray)
+                    t = t.GetElementType();
+                return t;
             }
             else
             {
@@ -498,22 +501,21 @@ namespace nom.tam.util
             if (dim == 0)
                 return baseClass;
 
-            String baseCl = baseClass.ToString();
+            // Build the array type using MakeArrayType rather than string-based Type.GetType
             Array a = (Array)x;
             if (a.Rank > 1)
             {
-                baseCl += "[";
-                for (int i = 0; i < dim - 1; i++)
-                    baseCl += ",";
-                baseCl += "]";
+                // Rectangular: e.g. float[,] → baseClass.MakeArrayType(rank)
+                return baseClass.MakeArrayType(a.Rank);
             }
             else
             {
+                // Jagged: e.g. float[][] → nest MakeArrayType() calls
+                Type result = baseClass;
                 for (int i = 0; i < dim; i++)
-                    baseCl += "[]";
+                    result = result.MakeArrayType();
+                return result;
             }
-
-            return Type.GetType(baseCl);
         }
 
         /// <summary>This routine returns the size of the base element of an array.</summary>
@@ -732,6 +734,7 @@ namespace nom.tam.util
         /// <param name="cl"> The class of the array.</param>
         /// <param name="dim"> The dimension of the array.</param>
         /// <returns> The allocated array.</returns>
+#pragma warning disable IL3050 // FITS only creates arrays of primitive value types (byte/short/int/long/float/double) which are AOT-safe
         public static Array NewInstance(Type cl, int dim)
         {
             Array o = Array.CreateInstance(cl, dim);
@@ -742,6 +745,7 @@ namespace nom.tam.util
             }
             return o;
         }
+#pragma warning restore IL3050
 
         /// <summary>Allocate an array dynamically. The Array.NewInstance method
         /// does not throw an error.</summary>
@@ -793,6 +797,7 @@ namespace nom.tam.util
         /// </summary>
         /// <param name="cl">The element type.</param>
         /// <param name="dims">The dimensions.</param>
+#pragma warning disable IL3050 // FITS only creates arrays of primitive value types (byte/short/int/long/float/double) which are AOT-safe
         public static Array NewRectangularInstance(Type cl, int[] dims)
         {
             if (dims.Length == 0)
@@ -822,6 +827,7 @@ namespace nom.tam.util
             }
             return outer;
         }
+#pragma warning restore IL3050
 
 
         // suggested in .99.2 version:

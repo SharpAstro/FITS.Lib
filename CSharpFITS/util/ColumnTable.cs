@@ -607,9 +607,9 @@ namespace nom.tam.util
             // char type = classname[1];
             Type t = data.GetType();
 
-            // Get the base Type, removing the dimension brackets
-            if (t.ToString().IndexOf("[") != -1)
-                t = Type.GetType(t.ToString().Substring(0, t.ToString().IndexOf("[")));
+            // Get the base Type, removing array dimensions
+            while (t.IsArray)
+                t = t.GetElementType();
 
             if (typeof(byte).Equals(t))
             {

@@ -113,6 +113,7 @@ namespace nom.tam.util
                 return null;
             }
 
+#pragma warning disable IL3050 // Types from IDataReader are known primitive types; AOT-safe
             if (row == null || row.Length != _reader.FieldCount)
             {
                 Type t = null;
@@ -124,6 +125,7 @@ namespace nom.tam.util
                     row[i] = Array.CreateInstance(t, 1);
                 }
             }
+#pragma warning restore IL3050
 
             for (int i = 0; i < row.Length; ++i)
             {
@@ -156,6 +158,7 @@ namespace nom.tam.util
             Array[] result = new Array[reader.FieldCount];
             Type t = null;
 
+#pragma warning disable IL3050 // Types from IDataReader are known primitive types; AOT-safe
             for (int i = 0; i < result.Length; ++i)
             {
                 t = GetFieldType(reader, i);
@@ -167,6 +170,7 @@ namespace nom.tam.util
                     result[i].SetValue(" ", 0);
                 }
             }
+#pragma warning restore IL3050
 
             return result;
         }

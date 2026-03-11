@@ -202,7 +202,9 @@ namespace nom.tam.fits
                     {
                         dims[j] = row[i].GetLength(j);
                     }
+#pragma warning disable IL3050 // typeof(bool) is a known primitive type; AOT-safe
                     result[i] = Array.CreateInstance(typeof(bool), dims);
+#pragma warning restore IL3050
                 }
             }
 

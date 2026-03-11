@@ -299,7 +299,7 @@ namespace nom.tam.image
             // Adjust for the startFrom correction
             linearOffset += (startFrom - (posits[lastDim] < 0 ? 0 : posits[lastDim]));
 
-            int elementSize = System.Runtime.InteropServices.Marshal.SizeOf(base_Renamed);
+            int elementSize = (int)PrimitiveInfo.sizes[base_Renamed];
             Buffer.BlockCopy(data, linearOffset * elementSize, output, startTo * elementSize, copyLength * elementSize);
         }
 

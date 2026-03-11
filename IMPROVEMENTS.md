@@ -2,6 +2,28 @@
 
 Changes since forking from [rwg0/csharpfits](https://github.com/rwg0/csharpfits).
 
+## v4.4.0
+
+### AOT and trimming compatibility
+
+The library is now annotated as AOT-compatible and trimmable on .NET 10+. All
+string-based `Type.GetType("System.Xyz")` reflection calls have been replaced with
+`typeof()`, `GetElementType()`, and `MakeArrayType()`. `Marshal.SizeOf(Type)` replaced
+with a static lookup. `Array.CreateInstance` calls are suppressed with justification
+since FITS only creates arrays of primitive value types which are AOT-safe.
+
+Zero `IL` trim/AOT warnings on build.
+
+## v4.3.0
+
+### Bug fixes and code cleanup
+
+- `FitsDate.ToDate()` parsing bug fix
+- `Fits` now implements `IDisposable`
+- Removed dead code: unused methods, commented-out blocks
+- Fixed `IsBit` bug
+- Added `BasicHDU`, `Fits`, and `ChannelApi` tests
+
 ## v4.2.0
 
 ### Hybrid arrays for 3D+ images and channel access API
