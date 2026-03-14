@@ -14,6 +14,7 @@ namespace nom.tam.util
     */
     using System;
     using System.Collections;
+    using System.Collections.Generic;
 
     /// <summary>This is a package of static functions which perform
     /// computations on arrays.  Generally these routines attempt
@@ -485,15 +486,39 @@ namespace nom.tam.util
             }
         }
 
-        /// <summary>This routine returns the base class of an object with the dimension indication
-        /// in form of brackets and/or commas. This is just
-        /// the type of the object for non-arrays.</summary>
-        /// TODO: This routine is implemented to get type of the object including all the dimensions with it.
-        /// If object 'x' is 2D Array type with elements filled in of type byte,
-        /// then x.GetType will return only System.Array[], but this routine will give System.Byte[][].
-        /// One can remove this method in future, if similar functionality provided by any library routine itself.
-        /// "This routine is only used in ArrayEquals."
-        public static Type GetBaseType(Object x)
+        // Static lookup tables for AOT-compatible array type construction.
+        // Avoids MakeArrayType() which requires dynamic code generation.
+        // Jagged: index 0 = base type, index 1 = T[], index 2 = T[][], etc.
+        private static readonly Dictionary<Type, Type[]> _jaggedArrayTypes = new Dictionary<Type, Type[]>
+        {
+            { typeof(byte),   new[] { typeof(byte),   typeof(byte[]),   typeof(byte[][]),   typeof(byte[][][]),   typeof(byte[][][][]) } },
+            { typeof(sbyte),  new[] { typeof(sbyte),  typeof(sbyte[]),  typeof(sbyte[][]),  typeof(sbyte[][][]),  typeof(sbyte[][][][]) } },
+            { typeof(short),  new[] { typeof(short),  typeof(short[]),  typeof(short[][]),  typeof(short[][][]),  typeof(short[][][][]) } },
+            { typeof(int),    new[] { typeof(int),    typeof(int[]),    typeof(int[][]),    typeof(int[][][]),    typeof(int[][][][]) } },
+            { typeof(long),   new[] { typeof(long),   typeof(long[]),   typeof(long[][]),   typeof(long[][][]),   typeof(long[][][][]) } },
+            { typeof(float),  new[] { typeof(float),  typeof(float[]),  typeof(float[][]),  typeof(float[][][]),  typeof(float[][][][]) } },
+            { typeof(double), new[] { typeof(double), typeof(double[]), typeof(double[][]), typeof(double[][][]), typeof(double[][][][]) } },
+            { typeof(bool),   new[] { typeof(bool),   typeof(bool[]),   typeof(bool[][]),   typeof(bool[][][]),   typeof(bool[][][][]) } },
+            { typeof(char),   new[] { typeof(char),   typeof(char[]),   typeof(char[][]),   typeof(char[][][]),   typeof(char[][][][]) } },
+        };
+
+        // Rectangular: index 0 = rank 2 (T[,]), index 1 = rank 3 (T[,,]), etc.
+        private static readonly Dictionary<Type, Type[]> _rectangularArrayTypes = new Dictionary<Type, Type[]>
+        {
+            { typeof(byte),   new[] { typeof(byte[,]),   typeof(byte[,,]),   typeof(byte[,,,]) } },
+            { typeof(sbyte),  new[] { typeof(sbyte[,]),  typeof(sbyte[,,]),  typeof(sbyte[,,,]) } },
+            { typeof(short),  new[] { typeof(short[,]),  typeof(short[,,]),  typeof(short[,,,]) } },
+            { typeof(int),    new[] { typeof(int[,]),    typeof(int[,,]),    typeof(int[,,,]) } },
+            { typeof(long),   new[] { typeof(long[,]),   typeof(long[,,]),   typeof(long[,,,]) } },
+            { typeof(float),  new[] { typeof(float[,]),  typeof(float[,,]),  typeof(float[,,,]) } },
+            { typeof(double), new[] { typeof(double[,]), typeof(double[,,]), typeof(double[,,,]) } },
+            { typeof(bool),   new[] { typeof(bool[,]),   typeof(bool[,,]),   typeof(bool[,,,]) } },
+            { typeof(char),   new[] { typeof(char[,]),   typeof(char[,,]),   typeof(char[,,,]) } },
+        };
+
+        /// <summary>Returns the full array type for an object, reconstructing it from
+        /// base type and dimensions. Only used in ArrayEquals for type comparison.</summary>
+        internal static Type GetBaseType(Object x)
         {
             Type baseClass = GetBaseClass(x);
             int dim = CountDimensions(x);
@@ -501,20 +526,18 @@ namespace nom.tam.util
             if (dim == 0)
                 return baseClass;
 
-            // Build the array type using MakeArrayType rather than string-based Type.GetType
             Array a = (Array)x;
             if (a.Rank > 1)
             {
-                // Rectangular: e.g. float[,] → baseClass.MakeArrayType(rank)
-                return baseClass.MakeArrayType(a.Rank);
+                if (_rectangularArrayTypes.TryGetValue(baseClass, out var rectTypes) && a.Rank - 2 < rectTypes.Length)
+                    return rectTypes[a.Rank - 2];
+                return x.GetType(); // fallback for unknown types
             }
             else
             {
-                // Jagged: e.g. float[][] → nest MakeArrayType() calls
-                Type result = baseClass;
-                for (int i = 0; i < dim; i++)
-                    result = result.MakeArrayType();
-                return result;
+                if (_jaggedArrayTypes.TryGetValue(baseClass, out var types) && dim < types.Length)
+                    return types[dim];
+                return x.GetType(); // fallback for unknown types
             }
         }
 
@@ -881,16 +904,13 @@ namespace nom.tam.util
                 return false;
             }
 
-            //Type xClass = x.GetType();
-            //Type yClass = y.GetType();
-
             Type xClass = GetBaseType(x);
             Type yClass = GetBaseType(y);
 
             if (xClass != yClass)
             {
                 // Allow comparing jagged vs rectangular arrays with the same base type and dimensions
-                if (x is Array xa && y is Array ya)
+                if (x is Array && y is Array)
                 {
                     Type xBase = GetBaseClass(x);
                     Type yBase = GetBaseClass(y);

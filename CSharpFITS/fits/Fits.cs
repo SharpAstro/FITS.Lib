@@ -138,7 +138,7 @@ namespace nom.tam.fits
                 fits.Write(s);
                 s.Close();
             }
-            catch (Exception e)
+            catch
             {
                 s.Close();
                 throw;

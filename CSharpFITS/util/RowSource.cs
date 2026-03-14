@@ -89,14 +89,7 @@ namespace nom.tam.util
             {
                 Type t = reader.GetFieldType(i);
                 //_rowStuffers[i] = RowStuffer.GetRowStuffer(reader.GetFieldType(i));
-                try
-                {
-                    _rowStuffers[i] = RowStuffer.GetRowStuffer(t);
-                }
-                catch (Exception e)
-                {
-                    throw;
-                }
+                _rowStuffers[i] = RowStuffer.GetRowStuffer(t);
                 if (reader.GetFieldType(i) == typeof(String))
                 {
                     _rowStuffers[i] =

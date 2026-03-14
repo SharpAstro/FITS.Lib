@@ -247,11 +247,6 @@ namespace nom.tam.util
                 return this;
             }
 
-            public override bool Equals(Object textNumberObject)
-            {
-                return System.Object.Equals(this, textNumberObject);
-            }
-
             public string FormatDouble(double number)
             {
                 if (groupingActivated)
@@ -281,10 +276,6 @@ namespace nom.tam.util
                 return System.Globalization.CultureInfo.GetCultures(System.Globalization.CultureTypes.AllCultures);
             }
 
-            //public override int GetHashCode()
-            //{
-            //    return base.GetHashCode();
-            //}
 
             private string GetCurrentFormatString()
             {
