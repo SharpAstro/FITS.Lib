@@ -9,16 +9,23 @@ namespace nom.tam.fits
     [TestFixture]
     public class LargeImageTest
     {
-        private const string TestFile = "testdocs/LDN1089_singleFrame.fits";
+        // The LDN1089 single-frame FITS is ~313 MB (6248×4176×3 floats) — too
+        // large to commit. Point this test at any locally-cached copy via the
+        // FITS_LIB_LARGE_TEST_FITS environment variable. No env var or missing
+        // file → Assert.Ignore so the test is a silent no-op on CI and other
+        // machines that don't have the fixture.
         private const string ExpectedHash = "7C431CB224BBAED51742338F0652AD1AEF9A601A9418A602E4AE49597EBE0B00";
 
         [Test]
         public void TestLoadLargeFloatImage()
         {
-            if (!File.Exists(TestFile))
-                Assert.Ignore("Large test file not available");
+            var testFile = Environment.GetEnvironmentVariable("FITS_LIB_LARGE_TEST_FITS");
+            if (string.IsNullOrEmpty(testFile))
+                Assert.Ignore("Set FITS_LIB_LARGE_TEST_FITS to a locally-cached LDN1089_singleFrame.fits to enable this test.");
+            if (!File.Exists(testFile))
+                Assert.Ignore($"FITS_LIB_LARGE_TEST_FITS = '{testFile}' but file not present.");
 
-            var fits = new Fits(TestFile);
+            var fits = new Fits(testFile);
             var hdus = fits.Read();
 
             Assert.That(hdus, Is.Not.Null);
