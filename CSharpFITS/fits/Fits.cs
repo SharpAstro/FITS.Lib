@@ -575,6 +575,34 @@ namespace nom.tam.fits
             return nextHDU;
         }
 
+        /// <summary>Read only the next HDU header on the default input stream, skipping the
+        /// data block. Use when only metadata is needed (folder scans, picker dialogs,
+        /// pipeline frame manifests) so a 36 MB pixel array isn't allocated and read
+        /// per file. Returned HDU has a header-only <see cref="Data"/> object; accessing
+        /// pixel data via <c>imageData.DataArray</c> returns <c>null</c>.</summary>
+        /// <returns>The HDU read, or null if an EOF was detected at the start of the HDU.</returns>
+        public virtual BasicHDU ReadHDUHeaderOnly()
+        {
+            if (dataStr == null || atEOF)
+            {
+                return null;
+            }
+
+            Header hdr = Header.ReadHeader(dataStr);
+            if (hdr == null)
+            {
+                atEOF = true;
+                return null;
+            }
+
+            Data datum = hdr.MakeData();
+            BasicHDU.SkipData(dataStr, hdr);
+            BasicHDU nextHDU = FitsFactory.HDUFactory(hdr, datum);
+
+            hduList.Add(nextHDU);
+            return nextHDU;
+        }
+
         /// <summary>Skip HDUs on the associate input stream.</summary>
         /// <param name="n">The number of HDUs to be skipped.</param>
         public virtual void SkipHDU(int n)
