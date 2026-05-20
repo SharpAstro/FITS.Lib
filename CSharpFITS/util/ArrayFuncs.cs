@@ -15,6 +15,7 @@ namespace nom.tam.util
     using System;
     using System.Collections;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
 
     /// <summary>This is a package of static functions which perform
     /// computations on arrays.  Generally these routines attempt
@@ -757,10 +758,32 @@ namespace nom.tam.util
         /// <param name="cl"> The class of the array.</param>
         /// <param name="dim"> The dimension of the array.</param>
         /// <returns> The allocated array.</returns>
-#pragma warning disable IL3050 // FITS only creates arrays of primitive value types (byte/short/int/long/float/double) which are AOT-safe
+        [UnconditionalSuppressMessage(
+            "AOT", "IL3050:RequiresDynamicCode",
+            Justification = "Typed-dispatch fast path covers every Type the FITS BITPIX spec produces (byte/short/int/long/float/double, plus bool/string for column tables). Array.CreateInstance fallback is only reached for non-FITS Types from custom callers; those callers accept the dynamic-code cost themselves.")]
         public static Array NewInstance(Type cl, int dim)
         {
-            Array o = Array.CreateInstance(cl, dim);
+            // Type.GetTypeCode is a single static lookup and the switch arms are
+            // jump-tabled by the JIT/AOT compiler -- no string compares, no typeof
+            // chains. Every TypeCode the FITS spec produces is statically named so
+            // AOT consumers in normal use don't carry IL3050.
+            Array o = Type.GetTypeCode(cl) switch
+            {
+                TypeCode.Byte    => new byte[dim],
+                TypeCode.SByte   => new sbyte[dim],
+                TypeCode.Int16   => new short[dim],
+                TypeCode.UInt16  => new ushort[dim],
+                TypeCode.Int32   => new int[dim],
+                TypeCode.UInt32  => new uint[dim],
+                TypeCode.Int64   => new long[dim],
+                TypeCode.UInt64  => new ulong[dim],
+                TypeCode.Single  => new float[dim],
+                TypeCode.Double  => new double[dim],
+                TypeCode.Boolean => new bool[dim],
+                TypeCode.Char    => new char[dim],
+                TypeCode.String  => new string[dim],
+                _                => Array.CreateInstance(cl, dim),  // rare fallback, suppressed above
+            };
             if (o == null)
             {
                 String desc = $"{cl}[{dim}]";
@@ -768,7 +791,6 @@ namespace nom.tam.util
             }
             return o;
         }
-#pragma warning restore IL3050
 
         /// <summary>Allocate an array dynamically. The Array.NewInstance method
         /// does not throw an error.</summary>
@@ -820,7 +842,6 @@ namespace nom.tam.util
         /// </summary>
         /// <param name="cl">The element type.</param>
         /// <param name="dims">The dimensions.</param>
-#pragma warning disable IL3050 // FITS only creates arrays of primitive value types (byte/short/int/long/float/double) which are AOT-safe
         public static Array NewRectangularInstance(Type cl, int[] dims)
         {
             if (dims.Length == 0)
@@ -835,22 +856,49 @@ namespace nom.tam.util
 
             if (dims.Length == 2)
             {
-                return Array.CreateInstance(cl, dims);
+                return NewRectangularInstance2D(cl, dims[0], dims[1]);
             }
 
             // 3D+: jagged outermost dimension, rectangular inner dimensions
-            // e.g. dims [3, 4176, 6248] → Array[3] of float[4176, 6248]
+            // e.g. dims [3, 4176, 6248] -> Array[3] of float[4176, 6248]
             int[] innerDims = new int[dims.Length - 1];
             Array.Copy(dims, 1, innerDims, 0, innerDims.Length);
 
             Array outer = new Array[dims[0]];
             for (int i = 0; i < dims[0]; i++)
             {
-                outer.SetValue(Array.CreateInstance(cl, innerDims), i);
+                outer.SetValue(NewRectangularInstance(cl, innerDims), i);
             }
             return outer;
         }
-#pragma warning restore IL3050
+
+        /// <summary>
+        /// Typed-dispatch 2-D rectangular array allocation. Mirrors
+        /// <see cref="NewInstance(Type, int)"/> -- <c>Array.CreateInstance(Type, int[])</c>
+        /// isn't AOT-safe for arbitrary <see cref="Type"/>, so the FITS-primitive
+        /// path is jump-tabled via <see cref="Type.GetTypeCode"/>.
+        /// </summary>
+        [UnconditionalSuppressMessage(
+            "AOT", "IL3050:RequiresDynamicCode",
+            Justification = "Same rationale as NewInstance(Type, int) -- typed fast path covers every FITS BITPIX type; fallback only for non-FITS callers.")]
+        private static Array NewRectangularInstance2D(Type cl, int dim0, int dim1)
+            => Type.GetTypeCode(cl) switch
+            {
+                TypeCode.Byte    => new byte[dim0, dim1],
+                TypeCode.SByte   => new sbyte[dim0, dim1],
+                TypeCode.Int16   => new short[dim0, dim1],
+                TypeCode.UInt16  => new ushort[dim0, dim1],
+                TypeCode.Int32   => new int[dim0, dim1],
+                TypeCode.UInt32  => new uint[dim0, dim1],
+                TypeCode.Int64   => new long[dim0, dim1],
+                TypeCode.UInt64  => new ulong[dim0, dim1],
+                TypeCode.Single  => new float[dim0, dim1],
+                TypeCode.Double  => new double[dim0, dim1],
+                TypeCode.Boolean => new bool[dim0, dim1],
+                TypeCode.Char    => new char[dim0, dim1],
+                TypeCode.String  => new string[dim0, dim1],
+                _                => Array.CreateInstance(cl, dim0, dim1),  // rare fallback, suppressed above
+            };
 
 
         // suggested in .99.2 version:
