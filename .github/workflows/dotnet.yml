@@ -5,15 +5,21 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
-    
+
 env:
+  # Patch component is auto-derived from github.run_number * 10 + run_attempt
+  # (literally concatenated, since both are non-zero), so every push to master
+  # produces a unique strictly-increasing NuGet version. Bump the prefix
+  # (4.6 -> 4.7) manually on minor feature additions, and (4.X -> 5.X) on
+  # breaking API changes. Patch increments happen automatically here.
+  VERSION_PREFIX: 4.6.${{ github.run_number }}
+  VERSION_REV: ${{ github.run_attempt }}
+  VERSION_HASH: +${{ github.sha }}
   BUILD_CONF: Release
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
     - name: Setup .NET
@@ -23,20 +29,20 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore --force-evaluate
     - name: Build
-      run: dotnet build -c $BUILD_CONF -p:ContinuousIntegrationBuild=true
+      run: dotnet build -c $BUILD_CONF --no-restore -p:Version=${VERSION_PREFIX}${VERSION_REV}${VERSION_HASH} -p:FileVersion=${VERSION_PREFIX}.${VERSION_REV} -p:ContinuousIntegrationBuild=true
     - name: Test
-      run: dotnet test -c $BUILD_CONF
+      run: dotnet test -c $BUILD_CONF --no-build
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
         name: nuget-packages
         path: '**/*.nupkg'
         retention-days: 5
-  
+
   publish:
     runs-on: ubuntu-latest
     needs: build
-
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     steps:
     - name: Download NuGet packages
       uses: actions/download-artifact@v4
