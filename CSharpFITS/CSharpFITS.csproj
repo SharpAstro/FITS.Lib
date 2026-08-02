@@ -11,16 +11,15 @@
     <LangVersion>latest</LangVersion>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>license.txt</PackageLicenseFile>
-    <!-- AssemblyVersion fixed at major.minor.0.0; the actual NuGet package version
-         is composed in CI via $(VERSION_PREFIX)$(VERSION_REV)+$(VERSION_HASH).
-         Bump VersionPrefix here on minor feature additions / breaking changes;
-         CI's run_number takes care of patch increments. -->
-    <AssemblyVersion>4.6.0.0</AssemblyVersion>
+    <!-- AssemblyVersion is major.minor.0.0, DERIVED from the one place the number is written
+         (VersionMajorMinor in the repo-root Directory.Build.props) rather than restated here. The
+         actual NuGet package version is composed in CI via $(VERSION_PREFIX)$(VERSION_REV)+$(VERSION_HASH),
+         whose prefix is read back from that same property. Bump it THERE; do not edit this. -->
+    <AssemblyVersion>$(VersionMajorMinor).0.0</AssemblyVersion>
     <PackageTags>Astronomy,FITS,Image</PackageTags>
     <RepositoryUrl>https://github.com/SharpAstro/FITS.Lib</RepositoryUrl>
     <PackageProjectUrl>https://github.com/SharpAstro/FITS.Lib</PackageProjectUrl>
     <Description>Supports reading and writing FITS files</Description>
-    <VersionPrefix>4.6.0</VersionPrefix>
     <Authors>Virtual Observatory - India</Authors>
     <PackageId>FITS.Lib</PackageId>
     <RootNamespace>nom.tam</RootNamespace>

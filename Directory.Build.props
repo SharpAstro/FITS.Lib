@@ -1,5 +1,16 @@
 <Project>
   <PropertyGroup>
+    <!-- THE version for this repo, and the only place it is written. It used to be stated three
+         times: VersionPrefix and AssemblyVersion in CSharpFITS.csproj, and VERSION_PREFIX in
+         .github/workflows/dotnet.yml. CI stamps one -p:Version over the build, so the csproj pair
+         only ever showed up in a local build, which is exactly where nobody looks; the workflow copy
+         is the one that decides what gets published, and nothing compared them.
+         The workflow now READS this back (dotnet msbuild -getProperty:VersionMajorMinor), so a
+         release bump is this one line and CI cannot publish a version the packages disagree with. -->
+    <VersionMajorMinor>4.6</VersionMajorMinor>
+    <!-- Local builds get Major.Minor.0; CI passes -p:Version=Major.Minor.<run><attempt>+<sha>, and
+         the condition lets it win. -->
+    <VersionPrefix Condition="'$(VersionPrefix)' == ''">$(VersionMajorMinor).0</VersionPrefix>
     <!-- Deterministic builds -->
     <Deterministic>true</Deterministic>
     <RestoreLockedMode Condition="'$(CI)' == 'true' or '$(TF_BUILD)' == 'true' or '$(GITHUB_ACTIONS)' == 'true'">true</RestoreLockedMode>
