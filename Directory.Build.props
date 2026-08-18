@@ -7,7 +7,7 @@
          is the one that decides what gets published, and nothing compared them.
          The workflow now READS this back (dotnet msbuild -getProperty:VersionMajorMinor), so a
          release bump is this one line and CI cannot publish a version the packages disagree with. -->
-    <VersionMajorMinor>4.6</VersionMajorMinor>
+    <VersionMajorMinor>5.0</VersionMajorMinor>
     <!-- Local builds get Major.Minor.0; CI passes -p:Version=Major.Minor.<run><attempt>+<sha>, and
          the condition lets it win. -->
     <VersionPrefix Condition="'$(VersionPrefix)' == ''">$(VersionMajorMinor).0</VersionPrefix>

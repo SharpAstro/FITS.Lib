@@ -176,7 +176,9 @@ namespace nom.tam.fits
 		}
 
 		/// <summary>The image tiler associated with this image.</summary>
-		private ImageTiler tiler;
+		/// Internal rather than private so a derived image -- the tile-compressed one --
+		/// can install a tiler once it has materialised its pixels.
+		internal ImageTiler tiler;
 
 
 		/// <summary>Create an array from a header description.

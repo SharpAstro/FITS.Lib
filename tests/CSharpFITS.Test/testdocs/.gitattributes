@@ -1,0 +1,6 @@
+# FITS files are binary. Their headers are ASCII, which is exactly why this has to
+# be stated: a heuristic that samples the first few kilobytes can read one as text
+# and convert its line endings, corrupting the pixels behind it.
+*.fits binary
+*.fit binary
+*.fz binary

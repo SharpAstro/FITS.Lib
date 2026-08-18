@@ -33,6 +33,18 @@ namespace nom.tam.fits
             set;
         } = true;
 
+        /// <summary>Whether a binary table carrying the tile compression convention is
+        /// surfaced as a <see cref="CompressedImageHDU"/>, decompressing its tiles on
+        /// demand. On by default, which is what makes an <c>fpack</c>-compressed file
+        /// read like the image it holds.
+        /// <para>
+        /// Turn it off to see such an HDU as the raw <see cref="BinaryTableHDU"/> it is
+        /// on disk -- useful for tooling that inspects or copies the compressed form
+        /// rather than the pixels.
+        /// </para>
+        /// </summary>
+        public static bool UseTileCompression { get; set; } = true;
+
         /// <summary>Are we processing HIERARCH style keywords</summary>
 		/// <summary>Enable/Disable hierarchical keyword processing.</summary>
 		public static bool UseHierarch { get; set; } = false;
@@ -41,7 +53,11 @@ namespace nom.tam.fits
         /// <summary>Given a Header return an appropriate datum.</summary>
 		public static Data DataFactory(Header hdr)
         {
-            if (ImageHDU.IsHeader(hdr))
+            if (UseTileCompression && CompressedImageHDU.IsHeader(hdr))
+            {
+                return CompressedImageHDU.ManufactureData(hdr);
+            }
+            else if (ImageHDU.IsHeader(hdr))
             {
                 return ImageHDU.ManufactureData(hdr);
             }
@@ -113,7 +129,11 @@ namespace nom.tam.fits
         /// <summary>Given Header and data objects return the appropriate type of HDU.</summary>
 		public static BasicHDU HDUFactory(Header hdr, Data d)
         {
-            if (d is ImageData)
+            if (d is CompressedImageData)
+            {
+                return new CompressedImageHDU(hdr, d);
+            }
+            else if (d is ImageData)
             {
                 return new ImageHDU(hdr, d);
             }

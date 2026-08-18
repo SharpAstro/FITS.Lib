@@ -1119,6 +1119,17 @@ namespace nom.tam.fits
             int naxis = GetIntValue("NAXIS", 0);
             int bitpix = GetIntValue("BITPIX");
 
+            // NAXIS = 0 means the HDU has no data array at all. Falling through would
+            // multiply an empty product of axes by the pixel width and report one
+            // pixel, which AddPadding then rounds up to a whole 2880 byte block -- so
+            // anything skipping data by this size (ReadHDUHeaderOnly, SkipHDU) landed
+            // one block past the next header. Every fpack-compressed file starts with
+            // exactly such an empty primary HDU.
+            if (naxis == 0)
+            {
+                return 0;
+            }
+
             int[] axes = new int[naxis];
 
             for (int axis = 1; axis <= naxis; axis += 1)
