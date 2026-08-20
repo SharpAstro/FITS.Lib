@@ -311,6 +311,50 @@ namespace nom.tam.fits
             Assert.That(date.Day, Is.EqualTo(15));
         }
 
+        /// <summary>
+        /// A DATE-OBS the parser cannot read must not be fatal. It used to be: the property caught
+        /// the FitsException, assigned null, and then unboxed that null to DateTime -- so the handler
+        /// written to tolerate a bad date was itself the crash, and reading any such file threw
+        /// NullReferenceException out of a property getter. Found via NASA's own reference sample,
+        /// which carries DATE-OBS = ' 2/07/96'.
+        /// </summary>
+        [Test]
+        public void AnUnreadableObservationDateIsDefaultRatherThanAThrow()
+        {
+            var src = new Fits();
+            var hdu = Fits.MakeHDU(new float[,] { { 1.0f } });
+            hdu.AddValue("DATE-OBS", "nn/nn/nn", "deliberately unparseable");
+            src.AddHDU(hdu);
+
+            using var f = WriteAndReopen(src);
+            var readHdu = f.ReadHDU();
+            Assert.That(readHdu.ObservationDate, Is.EqualTo(default(DateTime)));
+        }
+
+        /// <summary>An absent card behaved this way already; the unparseable case now agrees.</summary>
+        [Test]
+        public void AnAbsentObservationDateIsDefault()
+        {
+            var src = new Fits();
+            src.AddHDU(Fits.MakeHDU(new float[,] { { 1.0f } }));
+
+            using var f = WriteAndReopen(src);
+            Assert.That(f.ReadHDU().ObservationDate, Is.EqualTo(default(DateTime)));
+        }
+
+        /// <summary>The padded single-digit day now reads as the date it actually is.</summary>
+        [Test]
+        public void APaddedOldStyleObservationDateParses()
+        {
+            var src = new Fits();
+            var hdu = Fits.MakeHDU(new float[,] { { 1.0f } });
+            hdu.AddValue("DATE-OBS", " 2/07/96", "UT date, as NASA writes it");
+            src.AddHDU(hdu);
+
+            using var f = WriteAndReopen(src);
+            Assert.That(f.ReadHDU().ObservationDate, Is.EqualTo(new DateTime(1996, 7, 2)));
+        }
+
         [Test]
         public void TestBitPixConstants()
         {

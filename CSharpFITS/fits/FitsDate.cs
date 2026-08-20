@@ -48,9 +48,14 @@ namespace nom.tam.fits
                 return;
             }
 
-            // if string contains at least 8 characters...
+            // The shortest legal date is the old-style 'd/m/yy', six characters. It used to
+            // require eight, which is right for the new style ('yyyy-mm-dd' is ten) and wrong for
+            // the old one: the FITS convention pads a single-digit day, so NASA's own reference
+            // sample writes DATE-OBS = ' 2/07/96', which Trim() above turns into seven characters
+            // and this gate then rejected outright. A short new-style string still fails, because
+            // BuildNewDate's own separator guard does not match and year stays -1.
             int len = dStr.Length;
-            if (len >= 8)
+            if (len >= 6)
             {
                 var first =
                     // ... and there is a "/" in the string...
@@ -67,7 +72,9 @@ namespace nom.tam.fits
                 {
 
                     first = dStr.IndexOf('/');
-                    if (first > 1 && first < len)
+                    // first >= 1, not > 1: the day is one OR two digits (' 2/07/96' trims to a
+                    // one-character day). Zero is still rejected, since '/09/79' has no day at all.
+                    if (first >= 1 && first < len)
                     {
 
                         // ... this must be an old-style date
@@ -85,8 +92,9 @@ namespace nom.tam.fits
         private void BuildOldDate(String dStr, int first, int len)
         {
             int middle = dStr.IndexOf('/', first + 1);
-            //int middle = SupportClass.StringIndexOf(dStr, '/', first + 1);
-            if (middle > first + 2 && middle < len)
+            // middle > first + 1 admits a one-digit month for the same reason as the day above;
+            // it still requires at least one character between the separators, so '09//79' fails.
+            if (middle > first + 1 && middle < len)
             {
                 try
                 {

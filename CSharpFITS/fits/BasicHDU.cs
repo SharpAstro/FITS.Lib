@@ -171,45 +171,63 @@
             }
         }
 
-        /// <summary> Get the FITS file creation date as a <CODE>Date</CODE> object.</summary>
-        /// <returns>	either <CODE>null</CODE> or a Date object</returns>
+        /// <summary> Get the FITS file creation date (the <CODE>DATE</CODE> card).
+        ///
+        /// <para>Returns <CODE>default</CODE> when the card is absent or cannot be parsed. It is a
+        /// value type, so it can never be null -- the old doc comment saying otherwise was carried
+        /// over from the Java original, where this returned a Date reference, and it described the
+        /// bug rather than the contract: the catch below assigned null and the cast then unboxed it,
+        /// so an UNPARSEABLE date threw NullReferenceException from the very handler written to
+        /// tolerate it. An absent card already yielded default (FitsDate returns early for null and
+        /// ToDate hands back an unset DateTime), so returning default here makes the two agree
+        /// instead of making one of them fatal.</para>
+        ///
+        /// <para>Real files reach this: NASA's own FITS sample set writes <CODE>DATE-OBS =
+        /// ' 2/07/96'</CODE>, a space-padded single-digit day.</para>
+        /// </summary>
+        /// <returns>the parsed date, or <CODE>default</CODE> if there is none</returns>
         public virtual DateTime CreationDate
         {
             get
             {
-                Object result = null;
-
                 try
                 {
-                    result = new FitsDate(myHeader.GetStringValue("DATE")).ToDate();
+                    return new FitsDate(myHeader.GetStringValue("DATE")).ToDate();
                 }
                 catch (FitsException)
                 {
-                    result = null;
+                    return default;
                 }
-
-                return (DateTime)result;
             }
         }
 
-        /// <summary> Get the FITS file observation date as a <CODE>Date</CODE> object.</summary>
-        /// <returns>	either <CODE>null</CODE> or a Date object</returns>
+        /// <summary> Get the FITS file observation date (the <CODE>DATE-OBS</CODE> card).
+        ///
+        /// <para>Returns <CODE>default</CODE> when the card is absent or cannot be parsed. It is a
+        /// value type, so it can never be null -- the old doc comment saying otherwise was carried
+        /// over from the Java original, where this returned a Date reference, and it described the
+        /// bug rather than the contract: the catch below assigned null and the cast then unboxed it,
+        /// so an UNPARSEABLE date threw NullReferenceException from the very handler written to
+        /// tolerate it. An absent card already yielded default (FitsDate returns early for null and
+        /// ToDate hands back an unset DateTime), so returning default here makes the two agree
+        /// instead of making one of them fatal.</para>
+        ///
+        /// <para>Real files reach this: NASA's own FITS sample set writes <CODE>DATE-OBS =
+        /// ' 2/07/96'</CODE>, a space-padded single-digit day.</para>
+        /// </summary>
+        /// <returns>the parsed date, or <CODE>default</CODE> if there is none</returns>
         public virtual DateTime ObservationDate
         {
             get
             {
-                Object result = null;
-
                 try
                 {
-                    result = new FitsDate(myHeader.GetStringValue("DATE-OBS")).ToDate();
+                    return new FitsDate(myHeader.GetStringValue("DATE-OBS")).ToDate();
                 }
                 catch (FitsException)
                 {
-                    result = null;
+                    return default;
                 }
-
-                return (DateTime)result;
             }
         }
 

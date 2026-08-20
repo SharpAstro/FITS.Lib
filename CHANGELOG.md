@@ -55,6 +55,21 @@ uncompressed image's read is, so `ReadHDUHeaderOnly` still costs nothing.
 
 ### Fixed
 
+- **`BasicHDU.ObservationDate` and `CreationDate` threw `NullReferenceException` for a date they
+  could not parse.** The getter caught the `FitsException`, assigned `null`, and then cast that to
+  `DateTime` -- so the handler written to tolerate a bad date was itself the crash, out of a property
+  getter. An absent card already returned `default` (the parser returns early for null input), so the
+  unparseable case now agrees with it instead of being fatal. The doc comment promising "either null
+  or a Date object" came from the Java original, where these returned a reference; a `DateTime` cannot
+  be null, and the comment was describing the bug.
+
+- **An old-style `DD/MM/YY` date with a single-digit day did not parse.** The convention pads the day
+  with a space, so a real card reads `DATE-OBS = ' 2/07/96'`, which trims to seven characters -- and
+  the parser required eight, a minimum that suits the new `yyyy-mm-dd` style and rejects the old one
+  outright. Single-digit days and months are now accepted; a missing day (`/09/79`), missing month
+  (`09//79`) or missing year (`20/09/`) is still rejected. Together with the fix above this is what
+  made NASA's own reference sample `FOCx38i0101t_c0f.fits` unreadable rather than merely undated.
+
 - `Header.TrueDataSize` reported one 2880-byte block for an HDU with `NAXIS = 0`
   instead of no data at all, because an empty product of axes came out as one pixel.
   Anything skipping data by that size -- `ReadHDUHeaderOnly`, `SkipHDU` -- landed a
