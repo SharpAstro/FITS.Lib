@@ -47,10 +47,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.200" PrivateAssets="All" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Folder Include="Properties\" />
     <None Include="..\license.txt">
       <Pack>True</Pack>
