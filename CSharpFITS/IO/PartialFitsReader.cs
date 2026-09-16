@@ -7,7 +7,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Text;
-using Rectangle = System.Drawing.Rectangle;
 
 namespace nom.tam.fits.IO;
 
@@ -38,6 +37,30 @@ namespace nom.tam.fits.IO;
 /// </summary>
 public sealed class PartialFitsReader : IDisposable
 {
+    /// <summary>
+    /// The sub-rectangle of a frame to read, in 0-based pixels with the origin at the top-left.
+    /// Private on purpose: it describes four integers for this reader's own internals, and the
+    /// public entry point takes them as plain arguments so no caller has to name a rectangle type.
+    /// </summary>
+    /// <remarks>
+    /// <para>This replaced an alias to the framework drawing rectangle. That type put a drawing and
+    /// Windows association into the public signature purely to carry four integers, and a consumer
+    /// that keeps that namespace out of its own imaging layers could not call this reader without
+    /// reintroducing it.</para>
+    /// <para><see cref="Right"/> and <see cref="Bottom"/> are EXCLUSIVE, exactly as before, so the
+    /// bounds checks and row loops that use them keep their meaning unchanged.</para>
+    /// </remarks>
+    private readonly record struct PixelRegion(int X, int Y, int Width, int Height)
+    {
+        /// <summary>First column past the region.</summary>
+        public int Right => X + Width;
+
+        /// <summary>First row past the region.</summary>
+        public int Bottom => Y + Height;
+
+        public override string ToString() => $"[{X},{Y} {Width}x{Height}]";
+    }
+
     /// <summary>FITS header card size in bytes.</summary>
     public const int CardSize = 80;
 
@@ -166,7 +189,25 @@ public sealed class PartialFitsReader : IDisposable
     /// <c>[0, Width) x [0, Height)</c>. <paramref name="dest"/> must hold at
     /// least <c>src.Width * src.Height</c> floats.</para>
     /// </summary>
-    public void ReadRegion(Rectangle src, Span<float> dest)
+    /// <summary>
+    /// The same read, stated as plain edges so a caller needs no particular rectangle TYPE to ask
+    /// for a region.
+    /// </summary>
+    /// <remarks>
+    /// Added because the rectangle overload forces every caller to name a drawing type purely to
+    /// describe four integers, which a consumer that keeps that namespace out of its imaging and
+    /// device layers cannot do. Additive on purpose: the rectangle overload is untouched, so nothing
+    /// existing changes and no release has to be coordinated to adopt this one.
+    /// </remarks>
+    /// <param name="x">Left edge, 0-based and inclusive.</param>
+    /// <param name="y">Top edge, 0-based and inclusive.</param>
+    /// <param name="width">Horizontal extent in pixels.</param>
+    /// <param name="height">Vertical extent in pixels.</param>
+    /// <param name="dest">Destination, holding at least <c>width * height</c> floats.</param>
+    public void ReadRegion(int x, int y, int width, int height, Span<float> dest)
+        => ReadRegionCore(new PixelRegion(x, y, width, height), dest);
+
+    private void ReadRegionCore(PixelRegion src, Span<float> dest)
     {
         if (src.X < 0 || src.Y < 0 || src.Right > Width || src.Bottom > Height
             || src.Width <= 0 || src.Height <= 0)
@@ -192,7 +233,7 @@ public sealed class PartialFitsReader : IDisposable
         }
     }
 
-    private unsafe void ReadRegion16BE(Rectangle src, Span<float> dest)
+    private unsafe void ReadRegion16BE(PixelRegion src, Span<float> dest)
     {
         // FITS stores 16-bit pixels as big-endian signed int16. With BZERO=32768
         // BSCALE=1 (the standard unsigned-via-signed trick) the physical range
@@ -248,7 +289,7 @@ public sealed class PartialFitsReader : IDisposable
         }
     }
 
-    private unsafe void ReadRegion8(Rectangle src, Span<float> dest)
+    private unsafe void ReadRegion8(PixelRegion src, Span<float> dest)
     {
         var bzero = (float)BZero;
         var bscale = (float)BScale;
@@ -264,7 +305,7 @@ public sealed class PartialFitsReader : IDisposable
         }
     }
 
-    private unsafe void ReadRegion32IntBE(Rectangle src, Span<float> dest)
+    private unsafe void ReadRegion32IntBE(PixelRegion src, Span<float> dest)
     {
         var bzero = (float)BZero;
         var bscale = (float)BScale;
@@ -303,7 +344,7 @@ public sealed class PartialFitsReader : IDisposable
         }
     }
 
-    private unsafe void ReadRegion32FloatBE(Rectangle src, Span<float> dest)
+    private unsafe void ReadRegion32FloatBE(PixelRegion src, Span<float> dest)
     {
         var bzero = (float)BZero;
         var bscale = (float)BScale;
@@ -344,7 +385,7 @@ public sealed class PartialFitsReader : IDisposable
         }
     }
 
-    private unsafe void ReadRegion64FloatBE(Rectangle src, Span<float> dest)
+    private unsafe void ReadRegion64FloatBE(PixelRegion src, Span<float> dest)
     {
         var bzero = BZero;
         var bscale = BScale;

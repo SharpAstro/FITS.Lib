@@ -5,6 +5,31 @@ Newest first. The version is set in one place, `VersionMajorMinor` in
 
 Releases before 5.0 predate this file; `git log` is their record.
 
+## 6.0
+
+`PartialFitsReader.ReadRegion` no longer takes a `System.Drawing.Rectangle`.
+
+**Breaking.** The rectangle overload is gone and the region is stated as plain edges:
+
+```csharp
+// before
+reader.ReadRegion(new Rectangle(x, y, width, height), dest);
+// after
+reader.ReadRegion(x, y, width, height, dest);
+```
+
+The old signature forced every caller to name a drawing type purely to carry four
+integers. That type is portable in itself, but a consumer that deliberately keeps the
+namespace out of its own imaging and device layers could not call this reader without
+reintroducing it, and this was the last thing in the library referencing it (through a
+`using Rectangle = System.Drawing.Rectangle;` alias, now deleted).
+
+**The pixels a given region returns do not change.** The five decode paths are
+untouched: the bounds check, the row loops and the `BZERO`/`BSCALE` arithmetic are
+what they were, with an internal `PixelRegion` carrying the same
+`X`/`Y`/`Width`/`Height`/`Right`/`Bottom` shape, and `Right`/`Bottom` remain
+**exclusive**.
+
 ## 5.0
 
 Tile-compressed images (`.fz`) can be read.
