@@ -15,6 +15,7 @@ namespace nom.tam.util
     using System.Collections;
     using System.IO;
 #if !NETSTANDARD2_0
+    using System.Buffers;
     using System.Buffers.Binary;
     using System.Runtime.InteropServices;
 #endif
@@ -930,14 +931,29 @@ namespace nom.tam.util
             Span<byte> src = MemoryMarshal.CreateSpan(
                 ref MemoryMarshal.GetArrayDataReference(array), totalBytes);
 
-            int chunkBytes = chunkElements * elementSize;
-            if (_outBuf.Length < chunkBytes) _outBuf = new byte[chunkBytes];
+            // The swap buffer is RENTED, and no larger than the image. It used to grow `_outBuf`, a field
+            // of the stream, but a stream is usually made for ONE write, so that was a chunk-sized byte[]
+            // of large-object garbage per write (2 MB for a 16-bit image, 4 MB for 32-bit, 8 MB for
+            // 64-bit), and a 2 MB buffer for a 100 x 100 image.
+            int chunkBytes = Math.Min(chunkElements * elementSize, totalBytes);
+            byte[] rented = ArrayPool<byte>.Shared.Rent(chunkBytes);
+            try
+            {
+                WriteSwappedChunks(src, totalBytes, chunkBytes, rented, swapSize);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
+        }
 
+        private void WriteSwappedChunks(Span<byte> src, int totalBytes, int chunkBytes, byte[] buffer, int swapSize)
+        {
             for (int byteOffset = 0; byteOffset < totalBytes; byteOffset += chunkBytes)
             {
                 int remaining = Math.Min(chunkBytes, totalBytes - byteOffset);
-                src.Slice(byteOffset, remaining).CopyTo(_outBuf);
-                Span<byte> chunk = _outBuf.AsSpan(0, remaining);
+                src.Slice(byteOffset, remaining).CopyTo(buffer);
+                Span<byte> chunk = buffer.AsSpan(0, remaining);
                 switch (swapSize)
                 {
                     case 2:
@@ -956,7 +972,7 @@ namespace nom.tam.util
                             MemoryMarshal.Cast<byte, long>(chunk));
                         break;
                 }
-                _out.Write(_outBuf, 0, remaining);
+                _out.Write(buffer, 0, remaining);
             }
         }
 #endif
