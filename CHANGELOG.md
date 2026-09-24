@@ -37,6 +37,13 @@ writer.Finish();                                               // checks the len
 that was 2 to 8 MB of large-object garbage per write, even for a 100 x 100 image. The chunk is now
 rented, and no larger than the image.
 
+**A header's bytes no longer depend on when, or where, it was written.** `SIMPLE` and `XTENSION`
+carried `C# FITS: <the time of writing>` in their comment, formatted in the current culture. So the
+same image and cards never wrote the same file twice, which also made byte comparisons flaky across a
+second boundary. A culture with non-ASCII AM/PM designators (Korean's, for one) put bytes outside
+FITS's printable ASCII into every header. The comment is now `C# FITS`. Nothing reads it, but a
+file's bytes change: compared with a file written before 6.1, that one card differs.
+
 ## 6.0
 
 `PartialFitsReader.ReadRegion` no longer takes a `System.Drawing.Rectangle`.
