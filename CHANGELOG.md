@@ -5,6 +5,38 @@ Newest first. The version is set in one place, `VersionMajorMinor` in
 
 Releases before 5.0 predate this file; `git log` is their record.
 
+## 6.1
+
+**`FitsWriter` writes an image forward-only onto any writable stream, with no frame-sized buffer**
+(net10.0; the netstandard2.0 build does not have it). Additive.
+
+```csharp
+var header = FitsWriter.ImageHeader(bitpix: 16, width, height); // NAXIS1 first
+header.AddValue("OBJECT", "M 42", "");
+using var writer = FitsWriter.CreateFile(path, header);         // header written
+writer.WriteInPlace(band);                                     // as many bands as you like
+writer.Finish();                                               // checks the length, pads to 2880
+```
+
+- **The same bytes as `Fits.Write`.** The header is formatted by `Header.Write` itself, and
+  `ImageHeader` is the primary header the old path writes (the setter that makes a first HDU
+  primary is applied, not copied). Tests compare every BITPIX, a cube of planes, a write split into
+  any number of calls, a gzip stream and a file against `Fits.Write`, byte for byte.
+- **Any writable stream.** A write-only `GZipStream` works; the old path refused one, because it
+  builds a `BinaryReader` over any stream it is handed.
+- **No frame-sized buffer.** `Write<T>` swaps to big-endian through one rented 2 MB band;
+  `WriteInPlace<T>` swaps the caller's own scratch instead. A caller that produces the data band by
+  band, such as a quantised copy of a float frame, never holds an array the size of the image.
+- **`CreateFile`** opens the file unbuffered and preallocated to its final length. Every write is a
+  whole header, a band or the padding, so a buffer would only copy them.
+- **Order is enforced.** Data before the header, a second header, a sample type BITPIX does not
+  name, more data than the header declares, and a `Finish` short of it all throw.
+
+**The old writer allocates less.** `Fits.Write` swapped a rectangular array to big-endian through
+`_outBuf`, a field grown per stream to a 1M-element chunk. A stream is usually made for one write, so
+that was 2 to 8 MB of large-object garbage per write, even for a 100 x 100 image. The chunk is now
+rented, and no larger than the image.
+
 ## 6.0
 
 `PartialFitsReader.ReadRegion` no longer takes a `System.Drawing.Rectangle`.
