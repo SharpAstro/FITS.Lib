@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
@@ -169,6 +170,34 @@ namespace nom.tam.fits
             Assert.That(HeaderBytes(fromWriter), Is.EqualTo(HeaderBytes(hdu.Header)));
             Assert.That(fromWriter.ContainsKey("PCOUNT"), Is.False);
             Assert.That(fromWriter.ContainsKey("EXTEND"), Is.True);
+        }
+
+        [Test]
+        public void AHeaderIsPlainAsciiAndTheSameWhateverTheCulture()
+        {
+            // The SIMPLE comment used to carry DateTime.Now, formatted in the CURRENT culture: a header's
+            // bytes then depended on the second it was built (which made every comparison in this
+            // fixture fail whenever a second ticked over between its two headers) and on the machine's
+            // locale, and a culture whose AM/PM designators are not ASCII, as Korean's are, put bytes
+            // outside the 32 to 126 FITS allows into every header written there.
+            var korean = (CultureInfo)CultureInfo.InvariantCulture.Clone();
+            korean.DateTimeFormat.AMDesignator = "오전";
+            korean.DateTimeFormat.PMDesignator = "오후";
+            korean.DateTimeFormat.LongTimePattern = "tt h:mm:ss";
+
+            var invariant = HeaderBytes(FitsWriter.ImageHeader(16, Width, Height));
+            var saved = CultureInfo.CurrentCulture;
+            CultureInfo.CurrentCulture = korean;
+            try
+            {
+                var bytes = HeaderBytes(FitsWriter.ImageHeader(16, Width, Height));
+                Assert.That(Array.FindAll(bytes, b => b is < 32 or > 126), Is.Empty, "printable ASCII only");
+                Assert.That(bytes, Is.EqualTo(invariant), "the culture does not reach the header");
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = saved;
+            }
         }
 
         [Test]

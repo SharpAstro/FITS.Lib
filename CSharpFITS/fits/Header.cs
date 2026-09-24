@@ -137,7 +137,11 @@ namespace nom.tam.fits
                 //try
                 //{
                 //cursor.Add("SIMPLE", new HeaderCard("SIMPLE", value, "C# FITS: " + DateTime.Now));
-                cursor.Insert("SIMPLE", new HeaderCard("SIMPLE", value, $"C# FITS: {DateTime.Now}"));
+                // No time of writing in the comment: it made a header's bytes depend on the second it
+                // was built and on the current culture, so the same image and cards never wrote the
+                // same file twice, and a culture with non-ASCII AM/PM designators put bytes outside
+                // FITS's printable ASCII into every header.
+                cursor.Insert("SIMPLE", new HeaderCard("SIMPLE", value, "C# FITS"));
                 //}
                 //catch (HeaderCardException e)
                 //{
@@ -159,7 +163,8 @@ namespace nom.tam.fits
                 cursor.MoveNext();
                 //try
                 //{
-                cursor.Add("XTENSION", new HeaderCard("XTENSION", value, $"C# FITS: {DateTime.Now}"));
+                // No time of writing, for the same reason as SIMPLE's comment above.
+                cursor.Add("XTENSION", new HeaderCard("XTENSION", value, "C# FITS"));
 
                 //cursor.Insert("XTENSION", new HeaderCard("XTENSION", value, "C# FITS: " + DateTime.Now));
                 //}
