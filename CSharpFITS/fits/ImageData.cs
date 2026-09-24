@@ -332,19 +332,40 @@ namespace nom.tam.fits
 					throw new FitsException($"Invalid Object Type for FITS data:{classname}");
 			}
 
-			// if this is neither a primary header nor an image extension,
-			// make it a primary header
-			head.Simple = true;
-			head.Bitpix = bitpix;
-			head.Naxes = dimens.Length;
-
+			// FITS order: NAXIS1 is the LAST (fastest-varying) dimension of the array.
+			int[] naxis = new int[dimens.Length];
 			for (int i = 1; i <= dimens.Length; i += 1)
 			{
 				if (dimens[i - 1] == -1)
 				{
 					throw new FitsException($"Unfilled array for dimension: {i}");
 				}
-				head.SetNaxis(i, dimens[dimens.Length - i]);
+				naxis[i - 1] = dimens[dimens.Length - i];
+			}
+
+			FillImageHeader(head, bitpix, naxis);
+		}
+
+		/// <summary>
+		/// The mandatory cards of a primary image header, in the order FITS readers expect them. The ONE
+		/// place they are written: <see cref="FillHeader"/> describes an array with it and
+		/// <c>FitsWriter.ImageHeader</c> describes an image nobody has materialised, so the two cannot
+		/// drift apart.
+		/// </summary>
+		/// <param name="head">The header to fill.</param>
+		/// <param name="bitpix">8, 16, 32, 64, -32 or -64.</param>
+		/// <param name="naxis">Axis lengths in FITS order, NAXIS1 (the fastest-varying) first.</param>
+		internal static void FillImageHeader(Header head, int bitpix, int[] naxis)
+		{
+			// if this is neither a primary header nor an image extension,
+			// make it a primary header
+			head.Simple = true;
+			head.Bitpix = bitpix;
+			head.Naxes = naxis.Length;
+
+			for (int i = 1; i <= naxis.Length; i += 1)
+			{
+				head.SetNaxis(i, naxis[i - 1]);
 			}
 
 			// suggested in .97 version: EXTEND keyword added before PCOUNT and GCOUNT.
