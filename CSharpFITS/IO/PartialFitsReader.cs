@@ -23,13 +23,15 @@ namespace nom.tam.fits.IO;
 /// transform. With this reader peak RAM is bounded by the tile-column
 /// working set rather than <c>N x decoded-frame</c>.</para>
 ///
-/// <para>v1 scope: physical-axis 2D image HDU. Supports
-/// <c>BITPIX in {8, 16, 32, -32, -64}</c>; FITS is big-endian on disk and we
-/// byte-swap to host order on read. Per-row decoders for the three common
-/// formats (16-bit int, 32-bit int, 32-bit float) have a Vector128 prologue
-/// + scalar tail; <c>Vector128.Shuffle</c> JITs to a single PSHUFB (x86
-/// SSSE3) or TBL1 (ARM NEON) per swap. The BITPIX=8 path needs no swap and
-/// BITPIX=-64 is rare in science FITS so both stay scalar.</para>
+/// <para>v1 scope: physical-axis 2D image HDU, every BITPIX; FITS is
+/// big-endian on disk and we byte-swap to host order on read. Each row is
+/// decoded by <see cref="BigEndianSamples"/>, the same decoder
+/// <see cref="FitsReader"/> reads whole planes with, so a region and the
+/// plane it came from hold the same values.</para>
+///
+/// <para>A mapping suits this reader's many small regions of one frame. For
+/// a whole image <see cref="FitsReader"/> reads bands instead, which measured
+/// faster from the page cache and from disk.</para>
 ///
 /// <para>net10.0-only: depends on <see cref="Vector128{T}"/> and
 /// <c>Unsafe.AsRef&lt;T&gt;(byte*)</c>, both of which require .NET 7+. The
@@ -160,7 +162,7 @@ public sealed class PartialFitsReader : IDisposable
         if (!ended) throw new InvalidDataException($"FITS header missing END card in {path}");
         if (naxis != 2) throw new NotSupportedException($"PartialFitsReader v1 only supports NAXIS=2 images (got NAXIS={naxis} in {path})");
         if (width <= 0 || height <= 0) throw new InvalidDataException($"Bad NAXIS1/NAXIS2 in {path}: {width}x{height}");
-        if (bitpix is not (8 or 16 or 32 or -32 or -64))
+        if (!BigEndianSamples.IsSupported(bitpix))
             throw new NotSupportedException($"PartialFitsReader doesn't support BITPIX={bitpix} (in {path})");
 
         Width = width;
@@ -222,184 +224,18 @@ public sealed class PartialFitsReader : IDisposable
                 $"Destination span too small: {dest.Length} < {pixelCount}.", nameof(dest));
         }
 
-        switch (BitPix)
-        {
-            case 16:  ReadRegion16BE(src, dest); break;
-            case 8:   ReadRegion8(src, dest); break;
-            case 32:  ReadRegion32IntBE(src, dest); break;
-            case -32: ReadRegion32FloatBE(src, dest); break;
-            case -64: ReadRegion64FloatBE(src, dest); break;
-            default: throw new NotSupportedException($"BITPIX={BitPix}");
-        }
-    }
-
-    private unsafe void ReadRegion16BE(PixelRegion src, Span<float> dest)
-    {
         // FITS stores 16-bit pixels as big-endian signed int16. With BZERO=32768
         // BSCALE=1 (the standard unsigned-via-signed trick) the physical range
         // is [0, 65535]; otherwise it's [-32768, 32767] scaled by BSCALE.
-        var bzero = (float)BZero;
-        var bscale = (float)BScale;
-        var rowBytes = (long)Width * 2;
-        for (var r = 0; r < src.Height; r++)
+        var rowBytes = (long)Width * BytesPerPixel;
+        var regionRowBytes = src.Width * BytesPerPixel;
+        unsafe
         {
-            var srcRowStart = _basePtr + DataOffset + (long)(src.Y + r) * rowBytes + (long)src.X * 2;
-            var destRow = dest.Slice(r * src.Width, src.Width);
-            DecodeRow16BE(srcRowStart, destRow, bzero, bscale);
-        }
-    }
-
-    // Within-element byte-reverse permutations for Vector128.Shuffle. JITs to
-    // PSHUFB (x86 SSSE3) / TBL1 (ARM NEON) -- one instruction per swap.
-    private static readonly Vector128<byte> Swap16Mask = Vector128.Create(
-        (byte)1, 0, 3, 2, 5, 4, 7, 6, 9, 8, 11, 10, 13, 12, 15, 14);
-    private static readonly Vector128<byte> Swap32Mask = Vector128.Create(
-        (byte)3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12);
-
-    // Vector128 prologue + scalar tail. 8 ushort lanes per iteration -> two
-    // Vector128<float> stores.
-    private static unsafe void DecodeRow16BE(byte* src, Span<float> dest, float bzero, float bscale)
-    {
-        var c = 0;
-        if (Vector128.IsHardwareAccelerated)
-        {
-            const int Lanes = 8; // Vector128<ushort>.Count
-            var bzeroV = Vector128.Create(bzero);
-            var bscaleV = Vector128.Create(bscale);
-            ref var srcRef = ref Unsafe.AsRef<ushort>(src);
-            ref var destRef = ref MemoryMarshal.GetReference(dest);
-            for (; c + Lanes <= dest.Length; c += Lanes)
+            for (var r = 0; r < src.Height; r++)
             {
-                var beVec = Vector128.LoadUnsafe(ref srcRef, (nuint)c);
-                var leVec = Vector128.Shuffle(beVec.AsByte(), Swap16Mask).AsUInt16();
-                // Reinterpret as signed int16 so BZERO=32768 BSCALE=1 maps
-                // raw signed -> unsigned uint16 range.
-                var (lowI, highI) = Vector128.Widen(leVec.AsInt16());
-                var lowF = Vector128.ConvertToSingle(lowI) * bscaleV + bzeroV;
-                var highF = Vector128.ConvertToSingle(highI) * bscaleV + bzeroV;
-                lowF.StoreUnsafe(ref destRef, (nuint)c);
-                highF.StoreUnsafe(ref destRef, (nuint)(c + 4));
-            }
-        }
-        for (; c < dest.Length; c++)
-        {
-            var be = Unsafe.ReadUnaligned<ushort>(src + c * 2);
-            var stored = (short)BinaryPrimitives.ReverseEndianness(be);
-            dest[c] = bzero + bscale * stored;
-        }
-    }
-
-    private unsafe void ReadRegion8(PixelRegion src, Span<float> dest)
-    {
-        var bzero = (float)BZero;
-        var bscale = (float)BScale;
-        var rowBytes = (long)Width;
-        for (var r = 0; r < src.Height; r++)
-        {
-            var srcRowStart = _basePtr + DataOffset + (long)(src.Y + r) * rowBytes + src.X;
-            var destRow = dest.Slice(r * src.Width, src.Width);
-            for (var c = 0; c < src.Width; c++)
-            {
-                destRow[c] = bzero + bscale * srcRowStart[c];
-            }
-        }
-    }
-
-    private unsafe void ReadRegion32IntBE(PixelRegion src, Span<float> dest)
-    {
-        var bzero = (float)BZero;
-        var bscale = (float)BScale;
-        var rowBytes = (long)Width * 4;
-        for (var r = 0; r < src.Height; r++)
-        {
-            var srcRowStart = _basePtr + DataOffset + (long)(src.Y + r) * rowBytes + (long)src.X * 4;
-            var destRow = dest.Slice(r * src.Width, src.Width);
-            DecodeRow32IntBE(srcRowStart, destRow, bzero, bscale);
-        }
-    }
-
-    private static unsafe void DecodeRow32IntBE(byte* src, Span<float> dest, float bzero, float bscale)
-    {
-        var c = 0;
-        if (Vector128.IsHardwareAccelerated)
-        {
-            const int Lanes = 4; // Vector128<uint>.Count
-            var bzeroV = Vector128.Create(bzero);
-            var bscaleV = Vector128.Create(bscale);
-            ref var srcRef = ref Unsafe.AsRef<uint>(src);
-            ref var destRef = ref MemoryMarshal.GetReference(dest);
-            for (; c + Lanes <= dest.Length; c += Lanes)
-            {
-                var beVec = Vector128.LoadUnsafe(ref srcRef, (nuint)c);
-                var leVec = Vector128.Shuffle(beVec.AsByte(), Swap32Mask).AsInt32();
-                var fVec = Vector128.ConvertToSingle(leVec) * bscaleV + bzeroV;
-                fVec.StoreUnsafe(ref destRef, (nuint)c);
-            }
-        }
-        for (; c < dest.Length; c++)
-        {
-            var be = Unsafe.ReadUnaligned<uint>(src + c * 4);
-            var stored = (int)BinaryPrimitives.ReverseEndianness(be);
-            dest[c] = bzero + bscale * stored;
-        }
-    }
-
-    private unsafe void ReadRegion32FloatBE(PixelRegion src, Span<float> dest)
-    {
-        var bzero = (float)BZero;
-        var bscale = (float)BScale;
-        var rowBytes = (long)Width * 4;
-        for (var r = 0; r < src.Height; r++)
-        {
-            var srcRowStart = _basePtr + DataOffset + (long)(src.Y + r) * rowBytes + (long)src.X * 4;
-            var destRow = dest.Slice(r * src.Width, src.Width);
-            DecodeRow32FloatBE(srcRowStart, destRow, bzero, bscale);
-        }
-    }
-
-    private static unsafe void DecodeRow32FloatBE(byte* src, Span<float> dest, float bzero, float bscale)
-    {
-        var c = 0;
-        if (Vector128.IsHardwareAccelerated)
-        {
-            const int Lanes = 4; // Vector128<float>.Count
-            var bzeroV = Vector128.Create(bzero);
-            var bscaleV = Vector128.Create(bscale);
-            ref var srcRef = ref Unsafe.AsRef<uint>(src);
-            ref var destRef = ref MemoryMarshal.GetReference(dest);
-            for (; c + Lanes <= dest.Length; c += Lanes)
-            {
-                var beVec = Vector128.LoadUnsafe(ref srcRef, (nuint)c);
-                // Float bits get the same 4-byte swap as ints, then reinterpret.
-                var leVec = Vector128.Shuffle(beVec.AsByte(), Swap32Mask).AsSingle();
-                var fVec = leVec * bscaleV + bzeroV;
-                fVec.StoreUnsafe(ref destRef, (nuint)c);
-            }
-        }
-        for (; c < dest.Length; c++)
-        {
-            var beBits = Unsafe.ReadUnaligned<uint>(src + c * 4);
-            var leBits = BinaryPrimitives.ReverseEndianness(beBits);
-            var stored = BitConverter.Int32BitsToSingle((int)leBits);
-            dest[c] = bzero + bscale * stored;
-        }
-    }
-
-    private unsafe void ReadRegion64FloatBE(PixelRegion src, Span<float> dest)
-    {
-        var bzero = BZero;
-        var bscale = BScale;
-        var rowBytes = (long)Width * 8;
-        for (var r = 0; r < src.Height; r++)
-        {
-            var srcRowStart = _basePtr + DataOffset + (long)(src.Y + r) * rowBytes + (long)src.X * 8;
-            var destRow = dest.Slice(r * src.Width, src.Width);
-            for (var c = 0; c < src.Width; c++)
-            {
-                var beBits = Unsafe.ReadUnaligned<ulong>(srcRowStart + c * 8);
-                var leBits = BinaryPrimitives.ReverseEndianness(beBits);
-                var stored = BitConverter.Int64BitsToDouble((long)leBits);
-                destRow[c] = (float)(bzero + bscale * stored);
+                var srcRowStart = _basePtr + DataOffset + (long)(src.Y + r) * rowBytes + (long)src.X * BytesPerPixel;
+                BigEndianSamples.ToSingle(BitPix, new ReadOnlySpan<byte>(srcRowStart, regionRowBytes),
+                    dest.Slice(r * src.Width, src.Width), BZero, BScale);
             }
         }
     }

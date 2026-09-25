@@ -5,6 +5,59 @@ Newest first. The version is set in one place, `VersionMajorMinor` in
 
 Releases before 5.0 predate this file; `git log` is their record.
 
+## 6.2
+
+**`FitsReader` reads the first image of a file into the caller's planes, a band at a time**
+(net10.0; the netstandard2.0 build does not have it). Additive: the reading half of `FitsWriter`.
+
+```csharp
+if (FitsReader.TryOpen(path, out var reader))                  // false: not an image it can read
+{
+    using (reader)
+    {
+        var header = reader.Header;                            // parsed by Header itself
+        var plane = new float[reader.Width * reader.Height];
+        for (var c = 0; c < reader.Planes; c++)
+        {
+            reader.ReadPlane(c, plane);                        // BZERO + BSCALE * stored
+        }
+    }
+}
+```
+
+- **The image `Fits.ReadHDU` reads.** It walks to the first HDU `ImageHDU.IsHeader` accepts that
+  holds a sample, skipping every HDU before it by the data size its header declares, and parses each
+  header with `Header.ReadHeader`, so `Hdu` is the header-only HDU `ReadHDUHeaderOnly` gives, cards
+  and `FileOffset` included. An empty primary is passed over, and so is the placeholder FITS.Lib
+  writes in front of a table (`BasicHDU.DummyHDU`, NAXIS = 1 and NAXIS1 = 0), which is an image HDU
+  holding no sample. A tile-compressed first image is declined rather than skipped: skipping it
+  would read a later image than `Fits` does.
+- **The values the old path's typed array converts to.** For BITPIX 8, 16, 32 and -32 a sample is
+  `(float)BSCALE * stored + (float)BZERO`, multiplied and then added in single precision, never
+  fused. A float image with no scaling is copied bit for bit, so -0.0 and NaN payloads survive. 64
+  and -64 are scaled in double and rounded once. Tests compare every BITPIX with and without
+  scaling, a cube, an image past a table, float specials and a plane over several bands against the
+  old path, bit for bit.
+- **No typed array, no read-ahead buffer.** A plane is read with positional reads into one rented
+  2 MB band and decoded from it straight into the caller's span. Opening a 3 MB image and reading
+  its plane allocates under 64 KB; the old path allocates the typed array and a read-ahead buffer
+  before converting a sample.
+- **Positional reads, not a mapping.** Measured on a 26 MP BITPIX 16 image, win-arm64, from the
+  page cache and then from disk: 10 ms and 66 ms. A memory mapping of the same file took 25 ms
+  and 106 ms, since it pays a page fault per page on every read and, cold, faults the file in a few
+  pages at a time. `Fits.ReadHDU` converted into a preallocated float plane took 46 ms (54 MB
+  allocated) and 90 ms.
+- **Declining is a result, not an exception.** `TryOpen` answers false for what it cannot read
+  this way: not FITS, no image, a tile-compressed image, random groups, a plane with no sample or
+  too large for one span, data cut short. A file that cannot be opened still throws.
+- **`PartialFitsReader` decodes through the same code** (`BigEndianSamples`), so a region and the
+  plane it came from hold the same values. It now reads BITPIX 64 as well, and a float image with
+  no scaling keeps -0.0.
+
+**Found, not fixed here:** `Header.TrueDataSize` and `FitsUtil.AddPadding` compute in 32 bits, so
+the old path's own skipping (`ReadHDUHeaderOnly`, `SkipHDU`) lands in the wrong place after an HDU
+of 2 GiB or more. `FitsReader` computes the same sizes in 64 bits.
+
 ## 6.1
 
 **`FitsWriter` writes an image forward-only onto any writable stream, with no frame-sized buffer**

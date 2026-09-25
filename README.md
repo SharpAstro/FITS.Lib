@@ -25,6 +25,30 @@ recognised but not decoded. Writing compresses nothing -- an HDU writes out as t
 plain image extension it presents, making a read plus a write a funpack. See
 [CHANGELOG.md](CHANGELOG.md) for the details and the limits.
 
+## Writing and reading an image band by band
+
+`FitsWriter` writes one image onto any writable stream and `FitsReader` reads the first image
+of a file into the caller's planes, neither holding an array the size of the image (net10.0):
+
+```csharp
+using (var writer = FitsWriter.CreateFile(path, FitsWriter.ImageHeader(16, width, height)))
+{
+    writer.Write<short>(samples);
+    writer.Finish();
+}
+
+if (FitsReader.TryOpen(path, out var reader))   // false for a file it cannot read this way
+{
+    using (reader)
+    {
+        var plane = new float[reader.Width * reader.Height];
+        reader.ReadPlane(0, plane);              // BZERO + BSCALE * stored, in single precision
+    }
+}
+```
+
+A file `FitsReader` declines (gzipped, tile-compressed, no image) is still read by `Fits`.
+
 README FOR CSharpFITS package source code distribution
 ------------------------------------------------------
 1.Souce code zip contains the visual studio 2005 project.
