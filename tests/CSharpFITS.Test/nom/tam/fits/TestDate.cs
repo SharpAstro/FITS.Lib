@@ -74,6 +74,48 @@ namespace nom.tam.fits
         }
 
         /// <summary>
+        /// The fraction of a second is written with its leading zeros. It used to be the bare millisecond count, so a frame
+        /// 43 ms past the second was written ".43", which every reader, this one included, takes for 430 ms. Found in the
+        /// darks TianWen wrote: six of 157 carried a two-digit fraction.
+        /// </summary>
+        [Test]
+        public void TheFractionIsWrittenWithItsLeadingZeros()
+        {
+            var second = new DateTime(2026, 9, 26, 16, 19, 22);
+            Assertion.AssertEquals("43 ms", "2026-09-26T16:19:22.043", FitsDate.GetFitsDateString(second.AddMilliseconds(43)));
+            Assertion.AssertEquals("5 ms", "2026-09-26T16:19:22.005", FitsDate.GetFitsDateString(second.AddMilliseconds(5)));
+            Assertion.AssertEquals("430 ms", "2026-09-26T16:19:22.430", FitsDate.GetFitsDateString(second.AddMilliseconds(430)));
+            Assertion.AssertEquals("a whole second", "2026-09-26T16:19:22.000", FitsDate.GetFitsDateString(second));
+            Assertion.AssertEquals("below a millisecond", "2026-09-26T16:19:22.035228", FitsDate.GetFitsDateString(second.AddTicks(352_280)));
+        }
+
+        /// <summary>Every tick a DateTime holds survives a write and a read, the milliseconds under 100 included.</summary>
+        [Test]
+        public void ADateSurvivesAWriteAndARead()
+        {
+            foreach (var ticks in new long[] { 0, 1, 50_000, 352_280, 430_000, 9_990_000, 9_999_999 })
+            {
+                var epoch = new DateTime(2024, 12, 15, 12, 33, 50).AddTicks(ticks);
+                Assertion.AssertEquals($"{ticks} ticks", epoch, new FitsDate(FitsDate.GetFitsDateString(epoch)).ToDate());
+            }
+        }
+
+        /// <summary>
+        /// A fraction is read to the tick, as SharpCap writes it, and as a decimal (".5" is half a second); a digit past the
+        /// seventh, below a tick, is dropped.
+        /// </summary>
+        [Test]
+        public void AFractionIsReadToTheTick()
+        {
+            var second = new DateTime(2022, 9, 3, 12, 9, 53);
+            Assertion.AssertEquals("SharpCap's", second.AddTicks(352_280), new FitsDate("2022-09-03T12:09:53.0352280").ToDate());
+            Assertion.AssertEquals("a decimal", second.AddMilliseconds(500), new FitsDate("2022-09-03T12:09:53.5").ToDate());
+            Assertion.AssertEquals("below a tick", second.AddTicks(352_280), new FitsDate("2022-09-03T12:09:53.03522809").ToDate());
+            Assertion.AssertEquals("as text", "2022-09-03T12:09:53.035228", new FitsDate("2022-09-03T12:09:53.0352280").ToString());
+            Assertion.AssertEquals("no digits", false, TestArg("2022-09-03T12:09:53."));
+        }
+
+        /// <summary>
         /// The relaxed length and separator guards must not start accepting the malformed strings
         /// DateTest already pins as rejected -- a day of zero characters, or a month of zero.
         /// </summary>
