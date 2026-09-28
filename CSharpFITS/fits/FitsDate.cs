@@ -25,7 +25,9 @@ namespace nom.tam.fits
         private int hour = -1;
         private int minute = -1;
         private int second = -1;
-        private int millisecond = -1;
+        // The fraction of the second in ticks (100 ns), -1 when the string had none. It was a millisecond count, which dropped
+        // every digit past the third: SharpCap stamps each frame to the tick ("12:09:53.0352280").
+        private long fractionTicks = -1;
 
         private DateTime date;
 
@@ -125,8 +127,7 @@ namespace nom.tam.fits
             {
                 if (middle + 3 < len && tStr[middle + 3] == '.')
                 {
-                    double d = Double.Parse(tStr.Substring(middle + 3), CultureInfo.InvariantCulture);
-                    millisecond = (int)(d * 1000);
+                    fractionTicks = FractionTicks(tStr.Substring(middle + 4));
 
                     len = middle + 3;
                 }
@@ -139,9 +140,46 @@ namespace nom.tam.fits
                 }
                 catch (FormatException)
                 {
-                    hour = minute = second = millisecond = -1;
+                    hour = minute = second = -1;
+                    fractionTicks = -1;
                 }
             }
+        }
+
+        /// <summary>
+        /// The digits after a second's decimal point as ticks, read as digits rather than through a double (which need not give
+        /// back a whole tick): "5" is half a second, "043" 43 ms, "0352280" 352,280 ticks. A digit past the seventh is below a
+        /// tick and is dropped.
+        /// </summary>
+        private static long FractionTicks(String digits)
+        {
+            if (digits.Length == 0)
+            {
+                throw new FormatException("No digits after the decimal point");
+            }
+            long ticks = 0;
+            var place = TimeSpan.TicksPerSecond;
+            foreach (var digit in digits)
+            {
+                if (digit < '0' || digit > '9')
+                {
+                    throw new FormatException($"'{digit}' in the fraction of a second");
+                }
+                place /= 10;
+                ticks += (digit - '0') * place;
+            }
+            return ticks;
+        }
+
+        /// <summary>
+        /// A fraction of a second, in ticks, as the digits after the decimal point: always the three of the milliseconds, with
+        /// their leading zeros, then as many more as the ticks need. It was the bare millisecond count, so 43 ms was written
+        /// ".43", which every reader takes for 430 ms: one frame in ten came back up to 0.89 s late.
+        /// </summary>
+        private static String Fraction(long ticks)
+        {
+            var digits = ticks.ToString("D7", CultureInfo.InvariantCulture).TrimEnd('0');
+            return digits.Length < 3 ? digits.PadRight(3, '0') : digits;
         }
 
         private void BuildNewDate(String dStr, int first, int len)
@@ -179,7 +217,8 @@ namespace nom.tam.fits
                 catch (FormatException)
                 {
                     // yikes, something failed; reset everything
-                    year = month = mday = hour = minute = second = millisecond = -1;
+                    year = month = mday = hour = minute = second = -1;
+                    fractionTicks = -1;
                 }
             }
         }
@@ -192,8 +231,7 @@ namespace nom.tam.fits
             {
                 date = hour == -1 ?
                   new DateTime(year, month, mday, 0, 0, 0, 0) :
-                  new DateTime(year, month, mday, hour, minute, second,
-                               millisecond == -1 ? 0 : millisecond);
+                  new DateTime(year, month, mday, hour, minute, second).AddTicks(fractionTicks == -1 ? 0 : fractionTicks);
             }
 
             return date;
@@ -224,7 +262,7 @@ namespace nom.tam.fits
                 if (timeOfDay)
                 {
                     fitsDate.AppendFormat("{0:s}", epoch);
-                    fitsDate.Append($".{epoch.Millisecond}");
+                    fitsDate.Append('.').Append(Fraction(epoch.Ticks % TimeSpan.TicksPerSecond));
                 }
                 else
                 {
@@ -294,22 +332,9 @@ namespace nom.tam.fits
                 }
                 buf.Append(second);
 
-                if (millisecond != -1)
+                if (fractionTicks != -1)
                 {
-                    buf.Append('.');
-
-                    if (millisecond < 100)
-                    {
-                        if (millisecond < 10)
-                        {
-                            buf.Append("00");
-                        }
-                        else
-                        {
-                            buf.Append('0');
-                        }
-                    }
-                    buf.Append(millisecond);
+                    buf.Append('.').Append(Fraction(fractionTicks));
                 }
             }
 
