@@ -830,6 +830,151 @@ namespace nom.tam.fits
             return data;
         }
 
+        /// <summary>Whether single elements can be read straight from the file: the data
+        /// are still deferred (not in memory) and the input is seekable.</summary>
+        internal bool CanReadElementFromFile =>
+            table == null && currInput != null && fileOffset >= 0
+            && currInput is nom.tam.util.RandomAccess && currInput.CanSeek;
+
+        /// <summary>Byte offset of column <paramref name="col"/> within a row.</summary>
+        private int ColumnByteOffset(int col)
+        {
+            int offset = 0;
+            for (int c = 0; c < col; c++)
+            {
+                offset += ColumnByteSize(c);
+            }
+            return offset;
+        }
+
+        private int ColumnByteSize(int col)
+        {
+            if (IsVarCol(col))
+            {
+                return IsLongVary(col) ? 16 : 8;
+            }
+
+            int width;
+            Type b = bases[col];
+            if (b == typeof(short)) width = 2;
+            else if (b == typeof(int) || b == typeof(float)) width = 4;
+            else if (b == typeof(long) || b == typeof(double)) width = 8;
+            else width = 1;
+
+            return sizes[col] * width * (IsComplex(col) ? 2 : 1);
+        }
+
+        /// <summary>Read one element of one row without loading the table or heap: for a
+        /// variable-length column the row's descriptor and then just that span of the heap
+        /// (a typed array); for a one-value fixed column the value itself. The stream
+        /// position is restored afterwards. Only valid while
+        /// <see cref="CanReadElementFromFile"/>.</summary>
+        internal Object ReadElementFromFile(int row, int col)
+        {
+            if (!ValidRow(row) || !ValidColumn(col))
+            {
+                throw new FitsException("No such element");
+            }
+
+            long resume = FitsUtil.FindOffset(currInput);
+            try
+            {
+                long rowStart = fileOffset + (long)row * rowLen;
+                currInput.Seek(rowStart + ColumnByteOffset(col), SeekOrigin.Begin);
+
+                if (!IsVarCol(col))
+                {
+                    return ReadFixedFromFile(col);
+                }
+
+                long count, offset;
+                if (IsLongVary(col))
+                {
+                    var d = new long[2];
+                    currInput.Read(d);
+                    count = d[0];
+                    offset = d[1];
+                }
+                else
+                {
+                    var d = new int[2];
+                    currInput.Read(d);
+                    count = d[0];
+                    offset = d[1];
+                }
+
+                if (count < 0 || offset < 0 || count > int.MaxValue)
+                {
+                    throw new FitsException($"Invalid heap descriptor ({count}, {offset}) in row {row}");
+                }
+
+                long heapStart = fileOffset + (long)rowLen * nRow + heapOffset;
+                currInput.Seek(heapStart + offset, SeekOrigin.Begin);
+                return ReadTypedFromFile(bases[col], (int)count);
+            }
+            catch (IOException e)
+            {
+                throw new FitsException($"Error in deferred element read: {e.Message}", e);
+            }
+            finally
+            {
+                currInput.Seek(resume, SeekOrigin.Begin);
+            }
+        }
+
+        private Object ReadFixedFromFile(int col)
+        {
+            if (sizes[col] == 1 && !IsComplex(col))
+            {
+                Array one = (Array)ReadTypedFromFile(bases[col], 1);
+                return one.GetValue(0);
+            }
+
+            return ReadTypedFromFile(bases[col], sizes[col] * (IsComplex(col) ? 2 : 1));
+        }
+
+        private Object ReadTypedFromFile(Type type, int count)
+        {
+            if (type == typeof(byte))
+            {
+                var a = new byte[count];
+                if (count > 0) currInput.Read(a);
+                return a;
+            }
+            if (type == typeof(short))
+            {
+                var a = new short[count];
+                if (count > 0) currInput.Read(a);
+                return a;
+            }
+            if (type == typeof(int))
+            {
+                var a = new int[count];
+                if (count > 0) currInput.Read(a);
+                return a;
+            }
+            if (type == typeof(long))
+            {
+                var a = new long[count];
+                if (count > 0) currInput.Read(a);
+                return a;
+            }
+            if (type == typeof(float))
+            {
+                var a = new float[count];
+                if (count > 0) currInput.Read(a);
+                return a;
+            }
+            if (type == typeof(double))
+            {
+                var a = new double[count];
+                if (count > 0) currInput.Read(a);
+                return a;
+            }
+
+            throw new FitsException($"Cannot read a {type.Name} column element directly from the file");
+        }
+
         /// <summary>Get a row from the file.</summary>
         private Array GetFileRow(int row)
         {

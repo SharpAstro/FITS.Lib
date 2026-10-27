@@ -5,6 +5,30 @@ Newest first. The version is set in one place, `VersionMajorMinor` in
 
 Releases before 5.0 predate this file; `git log` is their record.
 
+## 6.4
+
+**Read one tile of a tile-compressed (`.fz`) image without decoding the whole image.** Additive,
+on `CompressedImageData` (`CompressedImageHDU.CompressedData`).
+
+```csharp
+var data = ((CompressedImageHDU)fits.ReadHDU()).CompressedData;
+for (var n = 0; n < data.TileCount; n++)
+{
+    var rect = data.GetTileRectangle(n);         // Start and Size per FITS axis, clipped at the edges
+    var pixels = new float[rect.PixelCount];
+    data.ReadTile(n, pixels);                    // row-major, axis 1 fastest
+}
+```
+
+- `TileCount`, `GetTileRectangle(n)` and `ReadTile<T>(n, T[])`. A tile decodes exactly as the
+  whole-image read would store it: same codecs, `BSCALE`/`BZERO`, `ZSCALE`/`ZZERO`, quantization
+  and per-tile-index subtractive dither, bit for bit.
+- **Only that tile's bytes are read.** On a `Fits` opened over a file (a seekable source) the table
+  stays deferred: `ReadTile(n)` seeks to row n's `COMPRESSED_DATA` / `GZIP_COMPRESSED_DATA` /
+  `UNCOMPRESSED_DATA` descriptor and its span of the heap, and to row n's `ZSCALE`/`ZZERO`, and
+  reads nothing else. A table already in memory, or a non-seekable input, uses the in-memory path.
+- The whole-image read still loads the table in one sequential read, which is faster for all tiles.
+
 ## 6.2
 
 **`FitsReader` reads the first image of a file into the caller's planes, a band at a time**

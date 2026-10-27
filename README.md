@@ -22,7 +22,19 @@ hdu.GetChannel(0);                       // float[2160, 3840]
 `RICE_1`, `GZIP_1`, `GZIP_2`, `PLIO_1` and `NOCOMPRESS` are supported, along with
 quantized floating-point images under all three dithering methods. `HCOMPRESS_1` is
 recognised but not decoded. Writing compresses nothing -- an HDU writes out as the
-plain image extension it presents, making a read plus a write a funpack. See
+plain image extension it presents, making a read plus a write a funpack.
+
+One tile can be read alone, without decoding the rest of the image. On a file opened
+by path only that tile's descriptor and heap bytes are read:
+
+```csharp
+var data = ((CompressedImageHDU)hdu).CompressedData;
+var rect = data.GetTileRectangle(n);     // Start / Size per FITS axis
+var pixels = new float[rect.PixelCount];
+data.ReadTile(n, pixels);                // data.TileCount tiles in all
+```
+
+See
 [CHANGELOG.md](CHANGELOG.md) for the details and the limits.
 
 ## Writing and reading an image band by band

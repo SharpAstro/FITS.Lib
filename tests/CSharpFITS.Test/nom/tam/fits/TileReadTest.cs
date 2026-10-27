@@ -147,6 +147,143 @@ namespace nom.tam.fits
             Assert.That(ex.Message, Does.Contain("HCOMPRESS_1"));
         }
 
+        // ------------------------------------------- deferred (file-backed) reads
+
+        private static readonly string[] DeferredFixtures =
+        {
+            "rice_i16_partial_tiles", "gzip2_i16_partial", "plio_i16_partial",
+            "rice_f32_dither1_partial", "rice_f32_dither2_partial", "rice_f32_nan_gzipfallback",
+        };
+
+        [Test, TestCaseSource(nameof(DeferredFixtures))]
+        public void ReadTileOnADeferredFileUsesOnlyThatTilesBytes(string name)
+        {
+            var clean = Open(name);
+            var image = (Array)clean.DataArray;
+            int count = clean.TileCount;
+            Assert.That(count, Is.GreaterThan(2));
+
+            string temp = Path.Combine(Path.GetTempPath(), $"fits_tile_{Guid.NewGuid():N}.fz");
+            try
+            {
+                foreach (int n in new[] { count / 2, count - 1 })
+                {
+                    File.Copy(Path.Combine(FixtureDir, name + ".fz"), temp, true);
+                    CorruptEverythingButTile(temp, clean, n);
+
+                    var fits = new Fits(temp);
+                    try
+                    {
+                        fits.ReadHDU();
+                        var data = ((CompressedImageHDU)fits.ReadHDU()).CompressedData;
+                        var rect = data.GetTileRectangle(n);
+                        var bits = ReadTileBits(data, n, rect.PixelCount);
+                        Assert.That(bits, Is.EqualTo(RectangleBits(image, rect.Start, rect.Size)),
+                            $"{name}: tile {n} from a file whose other tiles are garbage");
+                    }
+                    finally
+                    {
+                        fits.Close();
+                    }
+                }
+            }
+            finally
+            {
+                File.Delete(temp);
+            }
+        }
+
+        /// <summary>Overwrite, in the file at <paramref name="path"/>, the heap bytes of every
+        /// variable-length element and the fixed-column values of every row but
+        /// <paramref name="keep"/>, leaving that row's own bytes intact.</summary>
+        private static void CorruptEverythingButTile(string path, CompressedImageData data, int keep)
+        {
+            var h = data.CompressedHeader;
+            int rowLen = h.GetIntValue("NAXIS1");
+            int rows = h.GetIntValue("NAXIS2");
+            int fields = h.GetIntValue("TFIELDS");
+            long table = data.FileOffset;
+            int theap = h.GetIntValue("THEAP", 0);
+            long heap = table + (theap > 0 ? theap : (long)rowLen * rows);
+
+            var bytes = File.ReadAllBytes(path);
+            var kept = new List<(long start, long length)>();
+            var garbage = new List<(long start, long length)>();
+
+            int colOffset = 0;
+            for (int c = 1; c <= fields; c++)
+            {
+                string tform = h.GetStringValue($"TFORM{c}").Trim();
+                int i = 0;
+                while (i < tform.Length && char.IsDigit(tform[i])) i++;
+                int repeat = i == 0 ? 1 : int.Parse(tform.Substring(0, i));
+                char type = tform[i];
+                bool variable = type == 'P' || type == 'Q';
+                int width = variable ? (type == 'P' ? 8 : 16) * repeat : repeat * TypeBytes(type);
+                if (type == 'X') width = (repeat + 7) / 8;
+                int elementBytes = variable ? TypeBytes(tform[i + 1]) : 0;
+
+                for (int r = 0; r < rows; r++)
+                {
+                    long at = table + (long)r * rowLen + colOffset;
+                    var list = r == keep ? kept : garbage;
+                    if (variable)
+                    {
+                        long len, off;
+                        if (type == 'P')
+                        {
+                            len = ReadBE(bytes, at, 4);
+                            off = ReadBE(bytes, at + 4, 4);
+                        }
+                        else
+                        {
+                            len = ReadBE(bytes, at, 8);
+                            off = ReadBE(bytes, at + 8, 8);
+                        }
+                        list.Add((heap + off, len * elementBytes));
+                    }
+                    else
+                    {
+                        list.Add((at, width));
+                    }
+                }
+                colOffset += width;
+            }
+
+            var saved = kept.Select(k => (k.start, bytes.Skip((int)k.start).Take((int)k.length).ToArray())).ToList();
+            foreach (var g in garbage)
+            {
+                for (long b = 0; b < g.length; b++)
+                {
+                    bytes[g.start + b] = 0xA5;
+                }
+            }
+            foreach (var (start, original) in saved)
+            {
+                Array.Copy(original, 0, bytes, start, original.Length);
+            }
+            File.WriteAllBytes(path, bytes);
+        }
+
+        private static int TypeBytes(char type)
+        {
+            switch (type)
+            {
+                case 'I': return 2;
+                case 'J': case 'E': return 4;
+                case 'K': case 'D': case 'C': return 8;
+                case 'M': return 16;
+                default: return 1;
+            }
+        }
+
+        private static long ReadBE(byte[] b, long at, int n)
+        {
+            long v = 0;
+            for (int i = 0; i < n; i++) v = (v << 8) | b[at + i];
+            return v;
+        }
+
         // ---------------------------------------------------------------- helpers
 
         private static CompressedImageData Open(string name)
