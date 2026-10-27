@@ -2,6 +2,7 @@ namespace nom.tam.fits
 {
     using System;
     using System.Collections.Generic;
+    using System.Runtime.InteropServices;
     using nom.tam.fits.compression;
     using nom.tam.image;
     using nom.tam.util;
@@ -143,6 +144,131 @@ namespace nom.tam.fits
             }
         }
 
+        /// <summary>The number of tiles the image is cut into, numbered from 0 in
+        /// row-major order with axis 1 varying fastest (the row order of the table).</summary>
+        public int TileCount => _p.Dims.Length == 0 ? 0 : _p.TileCount;
+
+        /// <summary>The pixel rectangle of tile <paramref name="tileIndex"/>: its origin
+        /// and size per FITS axis, NAXIS1 first (index 0 is the fastest-varying, column
+        /// axis). A tile at the right or bottom edge is clipped to the image.</summary>
+        public TileRectangle GetTileRectangle(int tileIndex)
+        {
+            CheckTileIndex(tileIndex);
+            var size = new int[_p.Dims.Length];
+            var start = new int[_p.Dims.Length];
+            _p.TileGeometry(tileIndex, size, start);
+            return new TileRectangle(start, size);
+        }
+
+        /// <summary>Decode tile <paramref name="tileIndex"/> alone into
+        /// <paramref name="buffer"/>, row-major (axis 1 fastest), exactly as the whole-image
+        /// read would have stored it: same codec, scaling, quantization and dither. The
+        /// element type must be the image's own (byte for BITPIX 8, short, int, long,
+        /// float, double) and the buffer at least <see cref="TileRectangle.PixelCount"/>
+        /// long. Returns the number of pixels written.</summary>
+        public int ReadTile<T>(int tileIndex, Span<T> buffer) where T : unmanaged
+        {
+            if (typeof(T) != dataDescription.type)
+            {
+                throw new ArgumentException(
+                    $"The image holds {dataDescription.type.Name}, not {typeof(T).Name}", nameof(buffer));
+            }
+
+            CheckTileIndex(tileIndex);
+            if (!_readable)
+            {
+                throw new InvalidOperationException("The compressed image has not been read yet");
+            }
+
+            int nAxis = _p.Dims.Length;
+            var dims = new int[nAxis];
+            var start = new int[nAxis];
+            int pixels = _p.TileGeometry(tileIndex, dims, start);
+            if (buffer.Length < pixels)
+            {
+                throw new ArgumentException(
+                    $"Tile {tileIndex} has {pixels} pixels but the buffer holds {buffer.Length}", nameof(buffer));
+            }
+
+            PrepareDecode();
+            AllocateTileBuffers(pixels);
+            try
+            {
+                DecodeTile(tileIndex, pixels);
+                CopyTileOut(buffer, pixels);
+            }
+            finally
+            {
+                _ints = null;
+                _longs = null;
+                _values = null;
+            }
+
+            return pixels;
+        }
+
+        /// <summary><see cref="ReadTile{T}(int, Span{T})"/> into an array.</summary>
+        public int ReadTile<T>(int tileIndex, T[] buffer) where T : unmanaged
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+            return ReadTile<T>(tileIndex, new Span<T>(buffer));
+        }
+
+        private void CheckTileIndex(int tileIndex)
+        {
+            if (tileIndex < 0 || tileIndex >= TileCount)
+            {
+                throw new ArgumentOutOfRangeException(nameof(tileIndex),
+                    $"Tile index {tileIndex} is outside 0..{TileCount - 1}");
+            }
+        }
+
+        private void CopyTileOut<T>(Span<T> buffer, int pixels) where T : unmanaged
+        {
+            switch (_p.BitPix)
+            {
+                case 8:
+                {
+                    var d = MemoryMarshal.Cast<T, byte>(buffer);
+                    for (int i = 0; i < pixels; i++) d[i] = (byte)_ints[i];
+                    break;
+                }
+                case 16:
+                {
+                    var d = MemoryMarshal.Cast<T, short>(buffer);
+                    for (int i = 0; i < pixels; i++) d[i] = (short)_ints[i];
+                    break;
+                }
+                case 32:
+                {
+                    var d = MemoryMarshal.Cast<T, int>(buffer);
+                    for (int i = 0; i < pixels; i++) d[i] = _ints[i];
+                    break;
+                }
+                case 64:
+                {
+                    var d = MemoryMarshal.Cast<T, long>(buffer);
+                    for (int i = 0; i < pixels; i++) d[i] = _longs[i];
+                    break;
+                }
+                case -32:
+                {
+                    var d = MemoryMarshal.Cast<T, float>(buffer);
+                    for (int i = 0; i < pixels; i++) d[i] = (float)_values[i];
+                    break;
+                }
+                default:
+                {
+                    var d = MemoryMarshal.Cast<T, double>(buffer);
+                    for (int i = 0; i < pixels; i++) d[i] = _values[i];
+                    break;
+                }
+            }
+        }
+
         /// <summary>The decompressed image. The tiles are decoded on the first call and
         /// the result kept, so this is cheap thereafter.</summary>
         public override Object DataArray
@@ -202,7 +328,10 @@ namespace nom.tam.fits
             base.Write(o);
         }
 
-        private Array Decompress()
+        /// <summary>Refuse, with the reason, anything the tile decoder cannot honour, and
+        /// make sure the table rows and heap are in memory. Shared by the whole-image
+        /// and the single-tile read so they fail identically.</summary>
+        private void PrepareDecode()
         {
             if (_p.CompressionType == TileCompressionType.HCompress)
             {
@@ -244,6 +373,11 @@ namespace nom.tam.fits
 
             // Touch the table so the rows and heap are in memory before the tile loop.
             Object generatedAux = _table.DataArray;
+        }
+
+        private Array Decompress()
+        {
+            PrepareDecode();
 
             int nAxis = _p.Dims.Length;
             Array image = ArrayFuncs.NewRectangularInstance(dataDescription.type, dataDescription.dims);
@@ -251,7 +385,7 @@ namespace nom.tam.fits
             var planes = new List<Array>();
             CollectPlanes(image, nAxis <= 2 ? 0 : nAxis - 2, planes);
 
-            AllocateTileBuffers();
+            AllocateTileBuffers(_p.MaxTilePixels);
 
             var tileDims = new int[nAxis];
             var tileStart = new int[nAxis];
@@ -305,9 +439,8 @@ namespace nom.tam.fits
             return image;
         }
 
-        private void AllocateTileBuffers()
+        private void AllocateTileBuffers(int n)
         {
-            int n = _p.MaxTilePixels;
             if (_p.BitPix < 0)
             {
                 _values = new double[n];
