@@ -171,6 +171,28 @@ def main():
     emit("rice_i16_metadata", ramp((16, 16), np.int16, scale=2), header=hdr,
          compression_type="RICE_1", tile_shape=(4, 16))
 
+    # --- partial tiles on both edges, for single-tile reads -----------------
+    # Own generator, so the images above stay byte-identical when regenerated.
+    rng2 = np.random.default_rng(20261027)
+    pf = (ramp((50, 70), np.float32, scale=1e-3, offset=0.5)
+          + rng2.normal(0, 3e-3, (50, 70))).astype(np.float32)
+    emit("rice_f32_dither1_partial", pf, compression_type="RICE_1",
+         tile_shape=(17, 23), quantize_level=16,
+         quantize_method=SUBTRACTIVE_DITHER_1)
+    pf2 = pf.copy()
+    pf2[10:14, 10:14] = 0.0
+    emit("rice_f32_dither2_partial", pf2, compression_type="RICE_1",
+         tile_shape=(17, 23), quantize_level=16,
+         quantize_method=SUBTRACTIVE_DITHER_2)
+    emit("gzip2_i16_partial", ramp((50, 70), np.int16, scale=7),
+         compression_type="GZIP_2", tile_shape=(17, 23))
+    pmask = np.zeros((50, 70), dtype=np.int16)
+    pmask[5:20, 8:40] = 1
+    pmask[30:33, :] = 7
+    pmask[40:50, 50:70] = 1000
+    emit("plio_i16_partial", pmask, compression_type="PLIO_1",
+         tile_shape=(17, 23))
+
 
 if __name__ == "__main__":
     main()
