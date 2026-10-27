@@ -194,7 +194,7 @@ namespace nom.tam.fits
                     $"Tile {tileIndex} has {pixels} pixels but the buffer holds {buffer.Length}", nameof(buffer));
             }
 
-            PrepareDecode();
+            PrepareDecode(loadTable: !_table.CanReadElementFromFile);
             AllocateTileBuffers(pixels);
             try
             {
@@ -325,7 +325,7 @@ namespace nom.tam.fits
         /// <summary>Refuse, with the reason, anything the tile decoder cannot honour, and
         /// make sure the table rows and heap are in memory. Shared by the whole-image
         /// and the single-tile read so they fail identically.</summary>
-        private void PrepareDecode()
+        private void PrepareDecode(bool loadTable = true)
         {
             if (_p.CompressionType == TileCompressionType.HCompress)
             {
@@ -366,7 +366,12 @@ namespace nom.tam.fits
             }
 
             // Touch the table so the rows and heap are in memory before the tile loop.
-            Object generatedAux = _table.DataArray;
+            // A single-tile read on a seekable file skips this and reads only its own
+            // descriptor and heap bytes.
+            if (loadTable)
+            {
+                Object generatedAux = _table.DataArray;
+            }
         }
 
         private Array Decompress()
@@ -481,7 +486,7 @@ namespace nom.tam.fits
 
             if (_colUncompressed >= 0)
             {
-                Object stored = _table.GetElement(tileIndex, _colUncompressed);
+                Object stored = TileElement(tileIndex, _colUncompressed);
                 if (stored is Array storedArray && storedArray.Length > 0)
                 {
                     ReadStoredValues(storedArray, pixels);
@@ -583,9 +588,19 @@ namespace nom.tam.fits
             }
         }
 
+        /// <summary>One table element of a tile's row: read straight from the file (just
+        /// that row's descriptor and heap span) while the table is deferred and the input
+        /// seekable, from the in-memory table otherwise.</summary>
+        private Object TileElement(int tileIndex, int column)
+        {
+            return _table.CanReadElementFromFile
+                ? _table.ReadElementFromFile(tileIndex, column)
+                : _table.GetElement(tileIndex, column);
+        }
+
         private byte[] GetTileBytes(int tileIndex, int column)
         {
-            Object element = _table.GetElement(tileIndex, column);
+            Object element = TileElement(tileIndex, column);
             switch (element)
             {
                 case null: return null;
@@ -604,7 +619,7 @@ namespace nom.tam.fits
 
         private int[] GetTileWords(int tileIndex, int column)
         {
-            Object element = _table.GetElement(tileIndex, column);
+            Object element = TileElement(tileIndex, column);
             switch (element)
             {
                 case short[] s:
@@ -642,7 +657,7 @@ namespace nom.tam.fits
                 return fallback;
             }
 
-            Object element = _table.GetElement(tileIndex, column);
+            Object element = TileElement(tileIndex, column);
             switch (element)
             {
                 case double d: return d;
