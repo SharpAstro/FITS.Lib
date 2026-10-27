@@ -2,7 +2,6 @@ namespace nom.tam.fits
 {
     using System;
     using System.Collections.Generic;
-    using System.Runtime.InteropServices;
     using nom.tam.fits.compression;
     using nom.tam.image;
     using nom.tam.util;
@@ -166,8 +165,13 @@ namespace nom.tam.fits
         /// element type must be the image's own (byte for BITPIX 8, short, int, long,
         /// float, double) and the buffer at least <see cref="TileRectangle.PixelCount"/>
         /// long. Returns the number of pixels written.</summary>
-        public int ReadTile<T>(int tileIndex, Span<T> buffer) where T : unmanaged
+        public int ReadTile<T>(int tileIndex, T[] buffer) where T : unmanaged
         {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
             if (typeof(T) != dataDescription.type)
             {
                 throw new ArgumentException(
@@ -207,16 +211,6 @@ namespace nom.tam.fits
             return pixels;
         }
 
-        /// <summary><see cref="ReadTile{T}(int, Span{T})"/> into an array.</summary>
-        public int ReadTile<T>(int tileIndex, T[] buffer) where T : unmanaged
-        {
-            if (buffer == null)
-            {
-                throw new ArgumentNullException(nameof(buffer));
-            }
-            return ReadTile<T>(tileIndex, new Span<T>(buffer));
-        }
-
         private void CheckTileIndex(int tileIndex)
         {
             if (tileIndex < 0 || tileIndex >= TileCount)
@@ -226,43 +220,43 @@ namespace nom.tam.fits
             }
         }
 
-        private void CopyTileOut<T>(Span<T> buffer, int pixels) where T : unmanaged
+        private void CopyTileOut<T>(T[] buffer, int pixels) where T : unmanaged
         {
             switch (_p.BitPix)
             {
                 case 8:
                 {
-                    var d = MemoryMarshal.Cast<T, byte>(buffer);
+                    var d = (byte[])(object)buffer;
                     for (int i = 0; i < pixels; i++) d[i] = (byte)_ints[i];
                     break;
                 }
                 case 16:
                 {
-                    var d = MemoryMarshal.Cast<T, short>(buffer);
+                    var d = (short[])(object)buffer;
                     for (int i = 0; i < pixels; i++) d[i] = (short)_ints[i];
                     break;
                 }
                 case 32:
                 {
-                    var d = MemoryMarshal.Cast<T, int>(buffer);
+                    var d = (int[])(object)buffer;
                     for (int i = 0; i < pixels; i++) d[i] = _ints[i];
                     break;
                 }
                 case 64:
                 {
-                    var d = MemoryMarshal.Cast<T, long>(buffer);
+                    var d = (long[])(object)buffer;
                     for (int i = 0; i < pixels; i++) d[i] = _longs[i];
                     break;
                 }
                 case -32:
                 {
-                    var d = MemoryMarshal.Cast<T, float>(buffer);
+                    var d = (float[])(object)buffer;
                     for (int i = 0; i < pixels; i++) d[i] = (float)_values[i];
                     break;
                 }
                 default:
                 {
-                    var d = MemoryMarshal.Cast<T, double>(buffer);
+                    var d = (double[])(object)buffer;
                     for (int i = 0; i < pixels; i++) d[i] = _values[i];
                     break;
                 }
