@@ -239,5 +239,79 @@ namespace nom.tam.fits
             f.Close();
         }
 
+        /// <summary>
+        /// A header's stream that may be read at its end a few times and then refuses. A reader that keeps asking
+        /// for more after the end fails at once with this stream's own exception, where over a plain stream it
+        /// would spin and the test would never end. The refusal has to be made HERE and not in the stream beneath:
+        /// <see cref="BufferedDataStream"/> answers any failure of the stream it wraps with "0 bytes read".
+        /// </summary>
+        private sealed class EndsOnlyAFewTimes : BufferedDataStream
+        {
+            private int _readsAtTheEnd;
+
+            public EndsOnlyAFewTimes(byte[] bytes) : base(new MemoryStream(bytes, false))
+            {
+            }
+
+            public override int Read(byte[] buf, int offset, int size)
+            {
+                int read = base.Read(buf, offset, size);
+                if (read == 0 && size > 0 && ++_readsAtTheEnd > 8)
+                {
+                    throw new InvalidOperationException("read at the end of the stream again and again");
+                }
+                return read;
+            }
+        }
+
+        private static byte[] Cards(int bytes, bool withEnd)
+        {
+            var text = new System.Text.StringBuilder();
+            text.Append("SIMPLE  =                    T".PadRight(80));
+            text.Append("BITPIX  =                   16".PadRight(80));
+            text.Append("NAXIS   =                    0".PadRight(80));
+            for (int i = 0; text.Length < bytes; i++)
+            {
+                text.Append($"CARD{i,-4}=                    {i % 10}".PadRight(80));
+            }
+            text.Length = bytes;
+            if (withEnd)
+            {
+                text.Append("END".PadRight(80));
+                text.Append(' ', (2880 - text.Length % 2880) % 2880);
+            }
+            return System.Text.Encoding.ASCII.GetBytes(text.ToString());
+        }
+
+        /// <summary>
+        /// A header whose stream ends before its END card is a truncated file (tianwen#1529). It used to add the
+        /// last card it had read again on every pass and never return. The lengths: cut after three cards, cut
+        /// in the middle of a card, and cut at the end of a whole block, which is how a cache that held one
+        /// block too few of a header cut it.
+        /// </summary>
+        [TestCase(240)]
+        [TestCase(250)]
+        [TestCase(2880)]
+        public void AHeaderThatEndsBeforeItsEndCardIsATruncatedFile(int bytes)
+        {
+            Assert.Throws<TruncatedFileException>(() => Header.ReadHeader(new EndsOnlyAFewTimes(Cards(bytes, withEnd: false))));
+        }
+
+        /// <summary>The same cards with their END are a header, through the header's own read and through
+        /// <see cref="Fits"/>; and a stream with no card at all is still the end of the file, not a truncated one.</summary>
+        [Test]
+        public void AHeaderWithItsEndCardIsReadAndAnEmptyStreamIsTheEndOfTheFile()
+        {
+            Header header = Header.ReadHeader(new EndsOnlyAFewTimes(Cards(240, withEnd: true)));
+            Assert.That(header, Is.Not.Null);
+            Assert.That(header.GetIntValue("BITPIX"), Is.EqualTo(16));
+
+            BasicHDU hdu = new Fits(new MemoryStream(Cards(240, withEnd: true), false)).ReadHDUHeaderOnly();
+            Assert.That(hdu, Is.Not.Null);
+            Assert.That(hdu.Header.GetIntValue("NAXIS"), Is.EqualTo(0));
+
+            Assert.That(Header.ReadHeader(new EndsOnlyAFewTimes(new byte[0])), Is.Null);
+        }
+
     }
 }

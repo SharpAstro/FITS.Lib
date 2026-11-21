@@ -29,6 +29,14 @@ for (var n = 0; n < data.TileCount; n++)
   reads nothing else. A table already in memory, or a non-seekable input, uses the in-memory path.
 - The whole-image read still loads the table in one sequential read, which is faster for all tiles.
 
+### Fixed, in a 6.4 patch
+
+- **A header whose stream ends before its `END` card throws `TruncatedFileException`.** `Header.Read`
+  used to add the last card it had read again on every pass and never return, so a truncated file, or a
+  caller that handed over one block too few of a header, hung the reader and wrote "multiple occurrences
+  of key" for good (28 GB from one archive scan, tianwen#1529). A stream that ends before the FIRST card
+  is still the end of the file (`Header.ReadHeader` returns null), not a truncated one.
+
 ## 6.2
 
 **`FitsReader` reads the first image of a file into the caller's planes, a band at a time**
