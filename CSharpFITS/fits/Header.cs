@@ -1369,7 +1369,10 @@ namespace nom.tam.fits
         /// <param name="dis">The input stream to read the data from.</param>
         /// <returns> <CODE>null</CODE> if there was a problem with the header;
         /// otherwise return the header read from the input stream.</returns>
-        /// <exception cref="TruncatedFileException"> </exception>"
+        /// <exception cref="TruncatedFileException">The stream ended after the header's first card and before
+        /// its END card.</exception>
+        /// <exception cref="EndOfStreamException">The stream ended before the first card, or a card of zeros was
+        /// found: there is no header here.</exception>
         public virtual void Read(ArrayDataIO dis)
         {
             if (dis is nom.tam.util.RandomAccess)
@@ -1401,6 +1404,18 @@ namespace nom.tam.fits
                         throw new EndOfStreamException();
                     }
                     need -= len;
+                }
+
+                if (need > 0 && !firstCard)
+                {
+                    // The stream ended inside the header, before its END card. The loop above leaves the PREVIOUS
+                    // card in the buffer, so going on parsed and added that card again on every pass and never
+                    // ended: a header cut at a block boundary span for good, warning of a repeated key each time
+                    // (58,160 times in six seconds, and 28 GB of warnings from one archive scan). The Java
+                    // original threw here; its catch is the commented block below.
+                    throw new TruncatedFileException(
+                        $"The header ends before its END card: the stream ended after {cards.Count} card(s)",
+                        new EndOfStreamException());
                 }
 
                 bool allZero = true;
