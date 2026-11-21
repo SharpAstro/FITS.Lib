@@ -35,7 +35,13 @@ for (var n = 0; n < data.TileCount; n++)
   used to add the last card it had read again on every pass and never return, so a truncated file, or a
   caller that handed over one block too few of a header, hung the reader and wrote "multiple occurrences
   of key" for good (28 GB from one archive scan, tianwen#1529). A stream that ends before the FIRST card
-  is still the end of the file (`Header.ReadHeader` returns null), not a truncated one.
+  is still the end of the file (`Header.ReadHeader` returns null), not a truncated one. `Fits.Read()`
+  throws it for a file whose LAST header is cut; the HDUs before the cut stay reachable (`GetHDU(n)`).
+- **Two more loops that waited for a read to return -1 end at the end of the stream** (it returns 0).
+  On a stream that cannot seek, a header whose last block is cut inside its padding throws
+  `TruncatedFileException`, and `BufferedDataStream.Seek` past the end returns how far it got.
+- **A header's cards are counted as cards, not as reads**, so a stream that hands a card over in
+  pieces leaves the reader at the next block and not past it.
 
 ## 6.2
 

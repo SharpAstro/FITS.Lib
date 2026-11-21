@@ -1265,13 +1265,18 @@ namespace nom.tam.util
             }
             else
             {
+                // Skipped by reading. A read that returns nothing is the end of the stream (0, never the -1 this
+                // loop used to wait for, so a skip past the end never returned): the answer is how far it got.
                 long dist = 0;
-                for (int len = _s.Read(_garbageBuf, 0, (int)Math.Min(distance, _garbageBuf.Length));
-                    distance > 0 && len != -1; )
+                while (distance > 0)
                 {
+                    int len = _s.Read(_garbageBuf, 0, (int)Math.Min(distance, _garbageBuf.Length));
+                    if (len <= 0)
+                    {
+                        break;
+                    }
                     dist += len;
                     distance -= len;
-                    len = _s.Read(_garbageBuf, 0, (int)Math.Min(distance, _garbageBuf.Length));
                 }
                 return dist;
             }

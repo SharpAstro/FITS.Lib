@@ -240,22 +240,31 @@ namespace nom.tam.fits
         }
 
         /// <summary>
-        /// A header's stream that may be read at its end a few times and then refuses. A reader that keeps asking
-        /// for more after the end fails at once with this stream's own exception, where over a plain stream it
-        /// would spin and the test would never end. The refusal has to be made HERE and not in the stream beneath:
-        /// <see cref="BufferedDataStream"/> answers any failure of the stream it wraps with "0 bytes read".
+        /// A header's stream for these tests. It may be read at its end a few times and then refuses: a reader that
+        /// keeps asking for more after the end fails at once with this stream's own exception, where over a plain
+        /// stream it would spin and the test would never end. The refusal has to be made HERE and not in the stream
+        /// beneath: <see cref="BufferedDataStream"/> answers any failure of the stream it wraps with "0 bytes read".
+        /// It can also hand its bytes over a few at a time, as a pipe does, and sit on a stream that cannot seek.
         /// </summary>
-        private sealed class EndsOnlyAFewTimes : BufferedDataStream
+        private sealed class TestStream : BufferedDataStream
         {
+            private readonly int _chunk;
+            private int _left;
             private int _readsAtTheEnd;
 
-            public EndsOnlyAFewTimes(byte[] bytes) : base(new MemoryStream(bytes, false))
+            public TestStream(byte[] bytes, int chunk = int.MaxValue, bool seekable = true)
+                : base(seekable ? new MemoryStream(bytes, false) : new NoSeek(bytes))
             {
+                _chunk = chunk;
+                _left = bytes.Length;
             }
 
             public override int Read(byte[] buf, int offset, int size)
             {
-                int read = base.Read(buf, offset, size);
+                // The stream beneath gives all it is asked for or nothing, so a short tail is asked for by its size.
+                int take = Math.Min(Math.Min(size, _chunk), _left);
+                int read = take > 0 ? base.Read(buf, offset, take) : 0;
+                _left -= read;
                 if (read == 0 && size > 0 && ++_readsAtTheEnd > 8)
                 {
                     throw new InvalidOperationException("read at the end of the stream again and again");
@@ -264,10 +273,45 @@ namespace nom.tam.fits
             }
         }
 
-        private static byte[] Cards(int bytes, bool withEnd)
+        /// <summary>Bytes that can only be read forward, and that refuse to be read at their end again and again.</summary>
+        private sealed class NoSeek : Stream
+        {
+            private readonly MemoryStream _bytes;
+            private int _readsAtTheEnd;
+
+            public NoSeek(byte[] bytes)
+            {
+                _bytes = new MemoryStream(bytes, false);
+            }
+
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => throw new NotSupportedException();
+            public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+            public override int Read(byte[] buffer, int offset, int count)
+            {
+                int read = _bytes.Read(buffer, offset, count);
+                if (read == 0 && count > 0 && ++_readsAtTheEnd > 8)
+                {
+                    throw new InvalidOperationException("read at the end of the stream again and again");
+                }
+                return read;
+            }
+
+            public override void Flush() { }
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        }
+
+        /// <summary><paramref name="bytes"/> of cards, the first three a header's own; with its END card and the
+        /// padding of its last block when <paramref name="withEnd"/>, and <paramref name="padding"/> says how much of that.</summary>
+        private static byte[] Cards(int bytes, bool withEnd, int padding = int.MaxValue, string first = "SIMPLE  =                    T")
         {
             var text = new System.Text.StringBuilder();
-            text.Append("SIMPLE  =                    T".PadRight(80));
+            text.Append(first.PadRight(80));
             text.Append("BITPIX  =                   16".PadRight(80));
             text.Append("NAXIS   =                    0".PadRight(80));
             for (int i = 0; text.Length < bytes; i++)
@@ -278,23 +322,32 @@ namespace nom.tam.fits
             if (withEnd)
             {
                 text.Append("END".PadRight(80));
-                text.Append(' ', (2880 - text.Length % 2880) % 2880);
+                text.Append(' ', Math.Min(padding, (2880 - text.Length % 2880) % 2880));
             }
             return System.Text.Encoding.ASCII.GetBytes(text.ToString());
         }
 
         /// <summary>
         /// A header whose stream ends before its END card is a truncated file (tianwen#1529). It used to add the
-        /// last card it had read again on every pass and never return. The lengths: cut after three cards, cut
-        /// in the middle of a card, and cut at the end of a whole block, which is how a cache that held one
-        /// block too few of a header cut it.
+        /// last card it had read again on every pass and never return. Cut after three cards, and at the end of a
+        /// whole block, which is how a cache that held one block too few of a header cut it.
         /// </summary>
         [TestCase(240)]
-        [TestCase(250)]
         [TestCase(2880)]
         public void AHeaderThatEndsBeforeItsEndCardIsATruncatedFile(int bytes)
         {
-            Assert.Throws<TruncatedFileException>(() => Header.ReadHeader(new EndsOnlyAFewTimes(Cards(bytes, withEnd: false))));
+            Assert.Throws<TruncatedFileException>(() => Header.ReadHeader(new TestStream(Cards(bytes, withEnd: false))));
+        }
+
+        /// <summary>
+        /// Cut in the MIDDLE of a card. Over a stream that gives all it is asked for or nothing this is the case
+        /// above (the ten bytes are lost and the read returns nothing), so the stream here hands over what it has:
+        /// ten bytes of the fourth card arrive, and then the end.
+        /// </summary>
+        [Test]
+        public void AHeaderCutInTheMiddleOfACardIsATruncatedFile()
+        {
+            Assert.Throws<TruncatedFileException>(() => Header.ReadHeader(new TestStream(Cards(250, withEnd: false), chunk: 80)));
         }
 
         /// <summary>The same cards with their END are a header, through the header's own read and through
@@ -302,7 +355,7 @@ namespace nom.tam.fits
         [Test]
         public void AHeaderWithItsEndCardIsReadAndAnEmptyStreamIsTheEndOfTheFile()
         {
-            Header header = Header.ReadHeader(new EndsOnlyAFewTimes(Cards(240, withEnd: true)));
+            Header header = Header.ReadHeader(new TestStream(Cards(240, withEnd: true)));
             Assert.That(header, Is.Not.Null);
             Assert.That(header.GetIntValue("BITPIX"), Is.EqualTo(16));
 
@@ -310,7 +363,79 @@ namespace nom.tam.fits
             Assert.That(hdu, Is.Not.Null);
             Assert.That(hdu.Header.GetIntValue("NAXIS"), Is.EqualTo(0));
 
-            Assert.That(Header.ReadHeader(new EndsOnlyAFewTimes(new byte[0])), Is.Null);
+            Assert.That(Header.ReadHeader(new TestStream(new byte[0])), Is.Null);
+        }
+
+        /// <summary>
+        /// A stream that cannot seek is read through the padding of the header's last block. One that ended inside
+        /// that padding was read for ever: the loop waited for a read to return -1, and the end of a stream is 0.
+        /// </summary>
+        [Test]
+        public void AHeaderWhoseLastBlockIsCutShortOnAStreamThatCannotSeekIsATruncatedFile()
+        {
+            byte[] cut = Cards(240, withEnd: true, padding: 100);
+            Assert.Throws<TruncatedFileException>(() => Header.ReadHeader(new TestStream(cut, seekable: false)));
+
+            // The whole block is read to its end, and the next header starts where it should.
+            byte[] whole = Cards(240, withEnd: true);
+            byte[] two = new byte[whole.Length * 2];
+            whole.CopyTo(two, 0);
+            Cards(240, withEnd: true, first: "XTENSION= 'IMAGE   '").CopyTo(two, whole.Length);
+            var stream = new TestStream(two, seekable: false);
+            Assert.That(Header.ReadHeader(stream).GetIntValue("BITPIX"), Is.EqualTo(16));
+            Assert.That(Header.ReadHeader(stream).GetStringValue("XTENSION"), Is.EqualTo("IMAGE"));
+        }
+
+        /// <summary>
+        /// A header's cards are counted as cards, not as reads. A stream that hands a card over in pieces was
+        /// counted once per piece, the padding was worked out for a header that long, and the header after it was
+        /// looked for in the wrong place.
+        /// </summary>
+        [TestCase(true)]
+        [TestCase(false)]
+        public void AHeaderReadInPiecesLeavesTheStreamAtItsNextBlock(bool seekable)
+        {
+            byte[] whole = Cards(240, withEnd: true);
+            byte[] two = new byte[whole.Length * 2];
+            whole.CopyTo(two, 0);
+            Cards(240, withEnd: true, first: "XTENSION= 'IMAGE   '").CopyTo(two, whole.Length);
+
+            var stream = new TestStream(two, chunk: 50, seekable: seekable);
+            Assert.That(Header.ReadHeader(stream).GetIntValue("BITPIX"), Is.EqualTo(16));
+            Assert.That(Header.ReadHeader(stream).GetStringValue("XTENSION"), Is.EqualTo("IMAGE"));
+        }
+
+        /// <summary>
+        /// A skip on a stream that cannot seek is made by reading, and ends at the end of the stream with how far
+        /// it got. It waited for a read to return -1 and never returned.
+        /// </summary>
+        [Test]
+        public void ASkipPastTheEndOfAStreamThatCannotSeekReturnsHowFarItGot()
+        {
+            var stream = new BufferedDataStream(new NoSeek(new byte[3000]));
+            Assert.That(stream.Seek(2880), Is.EqualTo(2880));
+            Assert.That(stream.Seek(2880), Is.EqualTo(120), "only 120 bytes were left");
+            Assert.That(stream.Seek(2880), Is.EqualTo(0));
+        }
+
+        /// <summary>
+        /// What <see cref="Fits.Read"/> does with a file whose LAST header is cut: it throws, as the Java original
+        /// does and as a cut data block does, and does not pass it off as junk after the last HDU (that tolerance is
+        /// for bytes that are no header at all). The HDUs before the cut have been read and stay reachable.
+        /// </summary>
+        [Test]
+        public void AFileWhoseLastHeaderIsCutThrowsFromReadAndKeepsTheHdusBeforeIt()
+        {
+            byte[] whole = Cards(240, withEnd: true);
+            byte[] cut = Cards(240, withEnd: false, first: "XTENSION= 'IMAGE   '");
+            byte[] file = new byte[whole.Length + cut.Length];
+            whole.CopyTo(file, 0);
+            cut.CopyTo(file, whole.Length);
+
+            var fits = new Fits(new MemoryStream(file, false));
+            Assert.Throws<TruncatedFileException>(() => fits.Read());
+            Assert.That(fits.NumberOfHDUs, Is.EqualTo(1));
+            Assert.That(fits.GetHDU(0).Header.GetIntValue("BITPIX"), Is.EqualTo(16));
         }
 
     }
