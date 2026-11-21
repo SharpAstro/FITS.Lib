@@ -1398,7 +1398,6 @@ namespace nom.tam.fits
                 for (int len = 1; need > 0 && len > 0;)
                 {
                     len = dis.Read(buffer, 80 - need, need);
-                    count += 1;
                     if (firstCard && len == 0 && need == 80)
                     {
                         throw new EndOfStreamException();
@@ -1417,6 +1416,10 @@ namespace nom.tam.fits
                         $"The header ends before its END card: the stream ended after {cards.Count} card(s)",
                         new EndOfStreamException());
                 }
+
+                // One card, however many reads it took: a stream that hands a card over in pieces used to be counted
+                // once per piece, and the padding below was then worked out for a header that long.
+                count += 1;
 
                 bool allZero = true;
                 foreach (var b in buffer)
@@ -1485,12 +1488,19 @@ namespace nom.tam.fits
                 }
                 else
                 {
+                    // A read that returns nothing is the end of the stream: it returns 0 there and never -1, which
+                    // this loop used to wait for, so a stream that ended inside the header's padding was read for
+                    // ever. The file is cut inside its header's last block.
                     int pad = FitsUtil.Padding(count * 80);
-                    for (int len = dis.Read(buffer, 0, Math.Min(pad, buffer.Length));
-                        pad > 0 && len != -1;)
+                    while (pad > 0)
                     {
+                        int len = dis.Read(buffer, 0, Math.Min(pad, buffer.Length));
+                        if (len <= 0)
+                        {
+                            throw new TruncatedFileException(
+                                $"The header's last block ends {pad} byte(s) short", new EndOfStreamException());
+                        }
                         pad -= len;
-                        len = dis.Read(buffer, 0, Math.Min(pad, buffer.Length));
                     }
                 }
             }
