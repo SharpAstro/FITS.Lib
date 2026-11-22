@@ -1370,7 +1370,7 @@ namespace nom.tam.fits
         /// <returns> <CODE>null</CODE> if there was a problem with the header;
         /// otherwise return the header read from the input stream.</returns>
         /// <exception cref="TruncatedFileException">The stream ended after the header's first card and before
-        /// its END card.</exception>
+        /// its END card; or, on a stream that cannot seek, after the END card and before the end of its block.</exception>
         /// <exception cref="EndOfStreamException">The stream ended before the first card, or a card of zeros was
         /// found: there is no header here.</exception>
         public virtual void Read(ArrayDataIO dis)
@@ -1498,7 +1498,7 @@ namespace nom.tam.fits
                         if (len <= 0)
                         {
                             throw new TruncatedFileException(
-                                $"The header's last block ends {pad} byte(s) short", new EndOfStreamException());
+                                "The header's last block ends before it is complete", new EndOfStreamException());
                         }
                         pad -= len;
                     }
